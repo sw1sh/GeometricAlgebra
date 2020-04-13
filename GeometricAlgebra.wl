@@ -6,6 +6,11 @@ GeometricAlgebra::usage = "GeometricAlgebra[p, q] gives an underlying algebra ob
 Multivector::usage = "Multivector[coords, ga] gives a multivector in GeometricAlgebra ga";
 GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric product of multivectors v and w";
 Grade::usage = "Grade[v, n] gives a nth grade of a Multivector v";
+Dual::usage = "Dual[v] gives a dual of multivector v";
+Pseudoscalar::usage = "Pseudoscalar[v] gives a pseudoscalar in the same geometric algebra as multivector v";
+LeftContraction::usage = "LeftContraction[v, w] gives a left contraction of multivectors v and w";
+RightContraction::usage = "RightContraction[v, w] gives a right contraction of multivectors v and w";
+ScalarProduct::usage = "ScalarProduct[v, w] gives a geometric product of multivectors v and w";
 
 Begin["`Private`"]
 
@@ -41,12 +46,33 @@ Multivector /: v_Multivector[opt: Alternatives@@Keys@Options@Multivector] := Loo
 Multivector /: v_Multivector[opt: Alternatives@@Keys@Options@GeometricAlgebra] := v["GeometricAlgebra"][opt]
 Multivector /: Normal[v_Multivector] := Normal@v["Coordinates"]
 
-A_GeometricAlgebra["MultiplicationTable"] :=
+A_GeometricAlgebra["MultiplicationTable"] := A["MultiplicationTable"] =
     Outer[MultiplyIndices[#1, #2, A["Metric"]]&, A["Indices"], A["Indices"], 1]
-A_GeometricAlgebra["SignMatrix"] := A["MultiplicationTable"][[All, All, 1]]
+A_GeometricAlgebra["SignMatrix"] := A["SignMatrix"] = A["MultiplicationTable"][[All, All, 1]]
+
+mapCoordinates[f_, v_Multivector] := Multivector[f[v["Coordinates"]], "GeometricAlgebra" -> v["GeometricAlgebra"]]
+
+(* Addition *)
+
+ZeroMultivector[A_GeometricAlgebra] := Multivector[{}, "GeometricAlgebra" -> A]
+ZeroMultivector[v_Multivector] := ZeroMultivector[v["GeometricAlgebra"]]
+
+Multivector /:  Plus[vs__Multivector] /; Equivalent @@ (#["GeometricAlgebra"] & /@ {vs}) :=
+    Multivector[
+        Total[#["Coordinates"] & /@ {vs}],
+        "GeometricAlgebra" -> {vs}[[1]]["GeometricAlgebra"]
+    ]
+
+(* Scalar multiplication *)
+
+IdentityMultivector[A_GeometricAlgebra] := Multivector[{1}, "GeometricAlgebra" -> A]
+IdentityMultivector[v_Multivector] := IdentityMultivector[v["GeometricAlgebra"]]
+
+Multivector /: Times[x_, v_Multivector] := mapCoordinates[x # &, v]
 
 
 (* Geometric Product *)
+
 GeometricProduct[v_Multivector, w_Multivector] /; v["GeometricAlgebra"] == w["GeometricAlgebra"] ^:=
     Module[{
         x = v["Coordinates"], y = w["Coordinates"],
@@ -64,10 +90,14 @@ GeometricProduct[v_Multivector, w_Multivector] /; v["GeometricAlgebra"] == w["Ge
           "GeometricAlgebra" -> v["GeometricAlgebra"]
         ]
     ]
+
 GeometricProduct[vs__Multivector] := Fold[GeometricProduct, {vs}]
 
 (* infix notation *)
 Multivector /: v_Multivector ** w_Multivector := GeometricProduct[v, w]
+
+
+Multivector /: Power[v_Multivector, n_Integer] := Nest[# ** v &, IdentityMultivector[v], n]
 
 (* Grade *)
 
@@ -78,10 +108,32 @@ gradeIndices[A_GeometricAlgebra, k_Integer] := SparseArray[
     A["Order"]
 ]
 
-Grade[v_Multivector, n_Integer] := Multivector[
-    v["Coordinates"] gradeIndices[v["GeometricAlgebra"], n],
-    "GeometricAlgebra" -> v["GeometricAlgebra"]
-]
+Grade[v_, n_Integer] /; n < 0 || n > v["GeometricAlgebra"]["Dimension"] := ZeroMultivector[v]
+Grade[v_Multivector, n_Integer] := mapCoordinates[# gradeIndices[v["GeometricAlgebra"], n] &, v]
+
+GradeList[v_Multivector] := Grade[v, #] & /@ Range[0, v["GeometricAlgebra"]["Dimension"]]
+
+(* Product contractions *)
+
+gradeProduct[v_Multivector, w_Multivector] := Outer[GeometricProduct, GradeList[v], GradeList[w]]
+gradeFunctionContraction[f_, vs__Multivector] := Fold[Total[MapIndexed[Grade[#1, f[#2 - 1]] &, gradeProduct[##], {2}], 2] &, {vs}]
+
+LeftContraction[vs__Multivector] := gradeFunctionContraction[Apply[Subtract], vs]
+RightContraction[vs__Multivector] := gradeFunctionContraction[Apply[Subtract] @* Reverse, vs]
+
+Multivector /: Dot[vs__Multivector] := gradeFunctionContraction[Abs @* Apply[Subtract], vs]
+Multivector /: Wedge[vs__Multivector] := gradeFunctionContraction[Apply[Plus], vs]
+
+
+ScalarProduct[vs__Multivector] := Grade[GeometricProduct[vs], 0]
+
+
+(* Dual *)
+
+Pseudoscalar[A_GeometricAlgebra] := Multivector[SparseArray[{A["Order"] -> 1}], "GeometricAlgebra" -> A]
+Pseudoscalar[v_Multivector] := Pseudoscalar[v["GeometricAlgebra"]]
+
+Dual[v_Multivector] := v ** Pseudoscalar[v]
 
 (* Boxes *)
 
@@ -158,11 +210,11 @@ checkIndex[i_Integer, m_List] :=
         $Failed
     ]
 MultiplyIndices[i_List, j_List, m_List] :=
-    Module[{k = Join[i, j], newIndex, order, sign, squares},
+    Module[{index = Join[i, j], newIndex, order, sign, squares},
         If[FailureQ[checkIndex[i, m]] || FailureQ[checkIndex[j, m]], Return[$Failed]];
-        order = Ordering[k];
+        order = Ordering[index];
         sign = Signature[order];
-        {newIndex, squares} = Reap@SequenceReplace[k[[order]] ,{x_ ,x_} :> (Sow[x]; Nothing)];
+        {newIndex, squares} = Reap@SequenceReplace[index[[order]] ,{x_ ,x_} :> (Sow[x]; Nothing)];
         If[Length@squares > 0,
             sign = sign Times@@m[[squares[[1]]]]
         ];
