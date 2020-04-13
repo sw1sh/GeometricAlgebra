@@ -4,6 +4,7 @@ BeginPackage["GeometricAlgebra`"]
 
 GeometricAlgebra::usage = "GeometricAlgebra[p, q] gives an underlying algebra object for use with Multivector";
 Multivector::usage = "Multivector[coords, ga] gives a multivector in GeometricAlgebra ga";
+MultivectorBasis::usage = "MultivectorBasis[A, g] gives a list of multivectors from canonical basis of geometric algebra A with grade g";
 GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric product of multivectors v and w";
 Grade::usage = "Grade[v, n] gives a nth grade of a Multivector v";
 Dual::usage = "Dual[v] gives a dual of multivector v";
@@ -11,6 +12,7 @@ Pseudoscalar::usage = "Pseudoscalar[v] gives a pseudoscalar in the same geometri
 LeftContraction::usage = "LeftContraction[v, w] gives a left contraction of multivectors v and w";
 RightContraction::usage = "RightContraction[v, w] gives a right contraction of multivectors v and w";
 ScalarProduct::usage = "ScalarProduct[v, w] gives a geometric product of multivectors v and w";
+MultivectorTransform::usage = "MultivectorTransform[v, t] applies transformation t to multivector v";
 
 Begin["`Private`"]
 
@@ -28,7 +30,7 @@ A_GeometricAlgebra["Order"] := 2^A["Dimension"]
 A_GeometricAlgebra["Indices"] := Subsets[Range[A["Dimension"]]]
 
 Multivector::truncCoord = "Coordinates are incompatible with `1`. Number of coordinates should be less than `2`. Truncating excessive coordinates.";
-Options[Multivector] = {"GeometricAlgebra" -> GeometricAlgebra[3, 0],"Coordinates" -> SparseArray[{}, 8]};
+Options[Multivector] = {"GeometricAlgebra" -> GeometricAlgebra[3, 0], "Coordinates" -> SparseArray[{}, 8]};
 
 Multivector[coords_? VectorQ, OptionsPattern[]] :=
     With[{A = OptionValue["GeometricAlgebra"]},
@@ -46,29 +48,48 @@ Multivector /: v_Multivector[opt: Alternatives@@Keys@Options@Multivector] := Loo
 Multivector /: v_Multivector[opt: Alternatives@@Keys@Options@GeometricAlgebra] := v["GeometricAlgebra"][opt]
 Multivector /: Normal[v_Multivector] := Normal@v["Coordinates"]
 
+
+MultivectorBasis[A_GeometricAlgebra, n_Integer ? Positive | All] := With[{
+    from = If[n === All, 1, binomialSum[A["Dimension"], n - 1] + 1], 
+    to = If[n === All, A["Order"], binomialSum[A["Dimension"], n]]
+    },
+    Table[Multivector[SparseArray[{k -> 1}, A["Order"]], "GeometricAlgebra" -> A], {k, from, to}]
+]
+MultivectorBasis[A_GeometricAlgebra, n_Integer ? Negative] := MultivectorBasis[A, A["Dimension"] + n + 1]
+MultivectorBasis[A_GeometricAlgebra] := MultivectorBasis[A, All]
+MultivectorBasis[v_Multivector, args___] := MultivectorBasis[v["GeometricAlgebra"], args]
+
 A_GeometricAlgebra["MultiplicationTable"] := A["MultiplicationTable"] =
     Outer[MultiplyIndices[#1, #2, A["Metric"]]&, A["Indices"], A["Indices"], 1]
 A_GeometricAlgebra["SignMatrix"] := A["SignMatrix"] = A["MultiplicationTable"][[All, All, 1]]
 
 mapCoordinates[f_, v_Multivector] := Multivector[f[v["Coordinates"]], "GeometricAlgebra" -> v["GeometricAlgebra"]]
 
+
 (* Addition *)
 
 ZeroMultivector[A_GeometricAlgebra] := Multivector[{}, "GeometricAlgebra" -> A]
 ZeroMultivector[v_Multivector] := ZeroMultivector[v["GeometricAlgebra"]]
 
-Multivector /:  Plus[vs__Multivector] /; Equivalent @@ (#["GeometricAlgebra"] & /@ {vs}) :=
+
+Multivector /:  Plus[vs__Multivector] /; Length[{vs}] > 1 && Equivalent @@ (#["GeometricAlgebra"] & /@ {vs}) :=
     Multivector[
         Total[#["Coordinates"] & /@ {vs}],
         "GeometricAlgebra" -> {vs}[[1]]["GeometricAlgebra"]
     ]
+
+Multivector /: Plus[x: Except[_Multivector], v_Multivector] := x IdentityMultivector[v] + v
+
 
 (* Scalar multiplication *)
 
 IdentityMultivector[A_GeometricAlgebra] := Multivector[{1}, "GeometricAlgebra" -> A]
 IdentityMultivector[v_Multivector] := IdentityMultivector[v["GeometricAlgebra"]]
 
-Multivector /: Times[x_, v_Multivector] := mapCoordinates[x # &, v]
+Multivector /: Times[x: Except[_Multivector], v_Multivector] := mapCoordinates[x # &, v]
+
+v_Multivector["Coordinate", n_Integer] := v["Coordinates"][[n]]
+v_Multivector["Scalar"] := v["Coordinate", 1]
 
 
 (* Geometric Product *)
@@ -99,6 +120,7 @@ Multivector /: v_Multivector ** w_Multivector := GeometricProduct[v, w]
 
 Multivector /: Power[v_Multivector, n_Integer] := Nest[# ** v &, IdentityMultivector[v], n]
 
+
 (* Grade *)
 
 binomialSum[n_Integer, k_Integer] := Evaluate[Sum[Binomial[n, i], {i, 0, k}]]
@@ -112,6 +134,7 @@ Grade[v_, n_Integer] /; n < 0 || n > v["GeometricAlgebra"]["Dimension"] := ZeroM
 Grade[v_Multivector, n_Integer] := mapCoordinates[# gradeIndices[v["GeometricAlgebra"], n] &, v]
 
 GradeList[v_Multivector] := Grade[v, #] & /@ Range[0, v["GeometricAlgebra"]["Dimension"]]
+
 
 (* Product contractions *)
 
@@ -134,6 +157,44 @@ Pseudoscalar[A_GeometricAlgebra] := Multivector[SparseArray[{A["Order"] -> 1}], 
 Pseudoscalar[v_Multivector] := Pseudoscalar[v["GeometricAlgebra"]]
 
 Dual[v_Multivector] := v ** Pseudoscalar[v]
+
+
+(* Multivector transformation *)
+
+Multivector[OptionsPattern[]] := Multivector[
+    Multivector[OptionValue["Coordinates"], "GeometricAlgebra" -> GeometricAlgebra[Ceiling@Log2@Length[OptionValue["Coordinates"]]]],
+    OptionValue["GeometricAlgebra"]
+] /; Length[OptionValue["Coordinates"]] != OptionValue["GeometricAlgebra"]["Order"]
+
+Multivector[v_Multivector, A_GeometricAlgebra] /; v["GeometricAlgebra"] == A := v
+Multivector[v_Multivector, A_GeometricAlgebra] := Multivector[
+    SparseArray[
+        Map[Apply[With[{
+                pos = Position[A["Indices"], Extract[v["GeometricAlgebra"]["Indices"], #1]]
+            },
+            If[Length[pos] > 0, pos[[1]] -> #2, Nothing]] &], 
+            Most@ArrayRules@v["Coordinates"]
+        ], 
+        A["Order"]
+    ],
+    "GeometricAlgebra" -> A
+]
+
+MultivectorTransform[v_Multivector, "Conformal"] := Module[{p, q, A, e1, e2, o, n, w},
+    {p, q} = v["GeometricAlgebra"]["Signature"];
+    A = GeometricAlgebra["Signature" -> {p + 1, q + 1}];
+
+    Internal`InheritedBlock[{Multivector},
+        SetOptions[Multivector, "GeometricAlgebra" -> A];
+        e1 = Multivector[SparseArray[{-2 -> 1}, A["Order"]]];
+        e2 = Multivector[SparseArray[{-1 -> 1}, A["Order"]]];
+        o = (e2 - e1)/2;
+        n = e1 + e2;
+        w = Multivector[v, A];
+        o + w + 1/2 w^2 ** n
+    ]
+]
+
 
 (* Boxes *)
 
@@ -163,7 +224,7 @@ Multivector /: MakeBoxes[v:Multivector[OptionsPattern[]], StandardForm] := Check
     TemplateBox[{
         Splice@Map[
             Apply[
-                If[#1 > 1 && #2 == 1,
+                If[#1 > 1 && #2 === 1,
                     InterpretationBox[" ", 1],
                     Parenthesize[#2, StandardForm, Plus]
                 ]&
