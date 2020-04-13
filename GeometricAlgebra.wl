@@ -38,6 +38,7 @@ Multivector[] := Multivector[{}]
 
 Multivector /: v_Multivector[opt: Alternatives@@Keys@Options@Multivector] := Lookup[Options[v], opt]
 Multivector /: v_Multivector[opt: Alternatives@@Keys@Options@GeometricAlgebra] := v["GeometricAlgebra"][opt]
+Multivector /: Normal[v_Multivector] := Normal@v["Coordinates"]
 
 A_GeometricAlgebra["MultiplicationTable"] :=
     Outer[MultiplyIndices[#1, #2, A["Metric"]]&, A["Indices"], A["Indices"], 1]
