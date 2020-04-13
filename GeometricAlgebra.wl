@@ -4,7 +4,8 @@ BeginPackage["GeometricAlgebra`"]
 
 GeometricAlgebra::usage = "GeometricAlgebra[p, q] gives an underlying algebra object for use with Multivector";
 Multivector::usage = "Multivector[coords, ga] gives a multivector in GeometricAlgebra ga";
-GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric product of multivectors v and w"
+GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric product of multivectors v and w";
+Grade::usage = "Grade[v, n] gives a nth grade of a Multivector v";
 
 Begin["`Private`"]
 
@@ -68,6 +69,19 @@ GeometricProduct[vs__Multivector] := Fold[GeometricProduct, {vs}]
 (* infix notation *)
 Multivector /: v_Multivector ** w_Multivector := GeometricProduct[v, w]
 
+(* Grade *)
+
+binomialSum[n_Integer, k_Integer] := Evaluate[Sum[Binomial[n, i], {i, 0, k}]]
+
+gradeIndices[A_GeometricAlgebra, k_Integer] := SparseArray[
+    Thread[Range[binomialSum[A["Dimension"], k - 1] + 1, binomialSum[A["Dimension"], k]] -> 1],
+    A["Order"]
+]
+
+Grade[v_Multivector, n_Integer] := Multivector[
+    v["Coordinates"] gradeIndices[v["GeometricAlgebra"], n],
+    "GeometricAlgebra" -> v["GeometricAlgebra"]
+]
 
 (* Boxes *)
 
