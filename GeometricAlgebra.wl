@@ -4,6 +4,7 @@ BeginPackage["GeometricAlgebra`"]
 
 GeometricAlgebra::usage = "GeometricAlgebra[p, q] gives an underlying algebra object for use with Multivector";
 Multivector::usage = "Multivector[coords, ga] gives a multivector in GeometricAlgebra ga";
+GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric product of multivectors v and w"
 
 Begin["`Private`"]
 
@@ -42,8 +43,10 @@ A_GeometricAlgebra["MultiplicationTable"] :=
     Outer[MultiplyIndices[#1, #2, A["Metric"]]&, A["Indices"], A["Indices"], 1]
 A_GeometricAlgebra["SignMatrix"] := A["MultiplicationTable"][[All, All, 1]]
 
-v_Multivector ** w_Multivector /; v["GeometricAlgebra"] == w["GeometricAlgebra"] ^:=
-	Module[ {
+
+(* Geometric Product *)
+GeometricProduct[v_Multivector, w_Multivector] /; v["GeometricAlgebra"] == w["GeometricAlgebra"] ^:=
+    Module[{
         x = v["Coordinates"], y = w["Coordinates"],
         mt = v["GeometricAlgebra"]["MultiplicationTable"],
         coords
@@ -59,6 +62,13 @@ v_Multivector ** w_Multivector /; v["GeometricAlgebra"] == w["GeometricAlgebra"]
           "GeometricAlgebra" -> v["GeometricAlgebra"]
         ]
     ]
+GeometricProduct[vs__Multivector] := Fold[GeometricProduct, {vs}]
+
+(* infix notation *)
+Multivector /: v_Multivector ** w_Multivector := GeometricProduct[v, w]
+
+
+(* Boxes *)
 
 GeometricAlgebra /: MakeBoxes[A_GeometricAlgebra, StandardForm]:=
     With[{signature = A["Signature"]},
