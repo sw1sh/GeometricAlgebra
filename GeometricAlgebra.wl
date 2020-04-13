@@ -27,7 +27,7 @@ A_GeometricAlgebra["Metric"] :=
     ]
 A_GeometricAlgebra["Dimension"] := Total@A["Signature"]
 A_GeometricAlgebra["Order"] := 2^A["Dimension"]
-A_GeometricAlgebra["Indices"] := Subsets[Range[A["Dimension"]]]
+A_GeometricAlgebra["Indices"] := Subsets[Join[Range[A["Signature"][[1]]], - Range[A["Signature"][[2]]]]]
 
 Multivector::truncCoord = "Coordinates are incompatible with `1`. Number of coordinates should be less than `2`. Truncating excessive coordinates.";
 Options[Multivector] = {"GeometricAlgebra" -> GeometricAlgebra[3, 0], "Coordinates" -> SparseArray[{}, 8]};
@@ -123,14 +123,14 @@ Multivector /: Power[v_Multivector, n_Integer] := Nest[# ** v &, IdentityMultive
 
 (* Grade *)
 
-binomialSum[n_Integer, k_Integer] := Evaluate[Sum[Binomial[n, i], {i, 0, k}]]
+binomialSum[n_Integer, k_Integer] := Module[{i}, Evaluate[Sum[Binomial[n, i], {i, 0, k}]]]
 
 gradeIndices[A_GeometricAlgebra, k_Integer] := SparseArray[
     Thread[Range[binomialSum[A["Dimension"], k - 1] + 1, binomialSum[A["Dimension"], k]] -> 1],
     A["Order"]
 ]
 
-Grade[v_, n_Integer] /; n < 0 || n > v["GeometricAlgebra"]["Dimension"] := ZeroMultivector[v]
+Grade[v_Multivector, n_Integer] /; n < 0 || n > v["GeometricAlgebra"]["Dimension"] := ZeroMultivector[v]
 Grade[v_Multivector, n_Integer] := mapCoordinates[# gradeIndices[v["GeometricAlgebra"], n] &, v]
 
 GradeList[v_Multivector] := Grade[v, #] & /@ Range[0, v["GeometricAlgebra"]["Dimension"]]
@@ -186,12 +186,12 @@ MultivectorTransform[v_Multivector, "Conformal"] := Module[{p, q, A, e1, e2, o, 
 
     Internal`InheritedBlock[{Multivector},
         SetOptions[Multivector, "GeometricAlgebra" -> A];
-        e1 = Multivector[SparseArray[{-2 -> 1}, A["Order"]]];
-        e2 = Multivector[SparseArray[{-1 -> 1}, A["Order"]]];
+        e1 = Multivector[<|{p + 1} -> 1|>];
+        e2 = Multivector[<|{- q - 1} -> 1|>];
         o = (e2 - e1)/2;
         n = e1 + e2;
         w = Multivector[v, A];
-        o + w + 1/2 w^2 ** n
+        o + w + 1/ 2 w^2 ** n
     ]
 ]
 
@@ -242,7 +242,7 @@ Multivector /: MakeBoxes[v:Multivector[OptionsPattern[]], StandardForm] := Check
                     #1,
                     If[#2 === {},
                     Nothing, (* don't display zero coefficient terms *)
-                    SubscriptBox["e", RowBox@Riffle[#2, "\[InvisibleComma]"]]]}
+                    SubscriptBox["e", RowBox@Riffle[If[Positive@#, #, UnderscriptBox[Abs[#], "_"]] & /@ #2, "\[InvisibleComma]"]]]}
                 ]&,
                 { Slot /@ Range[n], indices}
             ],
@@ -266,16 +266,16 @@ Multivector /: MakeBoxes[v:Multivector[OptionsPattern[]], StandardForm] := Check
 
 MultiplyIndices::badIndex = "Index `1` is incompatible with metric `2`";
 checkIndex[i_Integer, m_List] := 
-    If[Not[0 <= Min[i] && Max[i] <= Length[m]],
+    If[Not[i != 0 && -Length[m] <= i <= Length[m]],
         Message[MultiplyIndices::badIndex, i, m];
         $Failed
     ]
 MultiplyIndices[i_List, j_List, m_List] :=
     Module[{index = Join[i, j], newIndex, order, sign, squares},
-        If[FailureQ[checkIndex[i, m]] || FailureQ[checkIndex[j, m]], Return[$Failed]];
+        If[AnyTrue[index, FailureQ[checkIndex[#, m]] &], Return[$Failed]];
         order = Ordering[index];
         sign = Signature[order];
-        {newIndex, squares} = Reap@SequenceReplace[index[[order]] ,{x_ ,x_} :> (Sow[x]; Nothing)];
+        {newIndex, squares} = Reap@SequenceReplace[index[[order]], {x_ ,x_} :> (Sow[x]; Nothing)];
         If[Length@squares > 0,
             sign = sign Times@@m[[squares[[1]]]]
         ];
