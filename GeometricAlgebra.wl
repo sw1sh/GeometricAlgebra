@@ -27,7 +27,7 @@ A_GeometricAlgebra["Metric"] :=
     ]
 A_GeometricAlgebra["Dimension"] := Total@A["Signature"]
 A_GeometricAlgebra["Order"] := 2^A["Dimension"]
-A_GeometricAlgebra["Indices"] := Subsets[Join[Range[A["Signature"][[1]]], - Range[A["Signature"][[2]]]]]
+A_GeometricAlgebra["Indices"] := Subsets[Join[Range[A["Signature"][[1]]], Range[-A["Signature"][[2]], -1]]]
 
 Multivector::truncCoord = "Coordinates are incompatible with `1`. Number of coordinates should be less than `2`. Truncating excessive coordinates.";
 Options[Multivector] = {"GeometricAlgebra" -> GeometricAlgebra[3, 0], "Coordinates" -> SparseArray[{}, 8]};
@@ -195,6 +195,18 @@ MultivectorTransform[v_Multivector, "Conformal"] := Module[{p, q, A, e1, e2, o, 
     ]
 ]
 
+reverseIndexCoordinate[A_GeometricAlgebra, indexPos_, x_] := Module[{newIndex, sign}, 
+    {newIndex, sign} = orderIndexWithSign[Reverse[Extract[A["Indices"], indexPos]], A["Dimension"]];
+    newIndex -> sign x
+]
+
+Multivector /: Reverse[v_Multivector] := Multivector[
+    Association[reverseIndexCoordinate[v["GeometricAlgebra"], #1, #2] & @@@ Most@ArrayRules@v["Coordinates"]], 
+    "GeometricAlgebra" -> v["GeometricAlgebra"]
+]
+Multivector /: Projection[v_Multivector, w_Multivector] := w ** (v.w)
+Rejection[v_Multivector, w_Multivector] := (v\[Wedge]w) ** w
+
 
 (* Boxes *)
 
@@ -226,12 +238,11 @@ Multivector /: MakeBoxes[v:Multivector[OptionsPattern[]], StandardForm] := Check
             Apply[
                 If[#1 > 1 && #2 === 1,
                     InterpretationBox[" ", 1],
-                    Parenthesize[#2, StandardForm, Plus]
+                    Parenthesize[#2, StandardForm, Times]
                 ]&
             ],
             rules
-        ],
-        ToBoxes@A
+        ]
     },
     "Multivector",
     DisplayFunction -> (Evaluate@RowBox[
@@ -243,26 +254,28 @@ Multivector /: MakeBoxes[v:Multivector[OptionsPattern[]], StandardForm] := Check
                     If[#2 === {},
                     Nothing, (* don't display zero coefficient terms *)
                     SubscriptBox["e", RowBox@Riffle[If[Positive@#, #, UnderscriptBox[Abs[#], "_"]] & /@ #2, "\[InvisibleComma]"]]]}
-                ]&,
+                ] &,
                 { Slot /@ Range[n], indices}
             ],
         "+"
         ],
         {0} (* all zeros displayed as just zero *)
     ]
-    ]&),
+    ] &),
     InterpretationFunction -> (Evaluate@RowBox[{
         "Multivector", "[",
-        "<|", Splice@Riffle[MapThread[RowBox[{ToBoxes[#1], "->", #2}]&, {indices, Slot /@ Range[n]}], ","], "|>",
-        ",", "GeometricAlgebra", "->", Slot[n + 1], "]"
+            "<|", Splice@Riffle[MapThread[RowBox[{ToBoxes[#1], "->", #2}]&, {indices, Slot /@ Range[n]}], ","], "|>", ",",
+            "GeometricAlgebra", "->", ToBoxes@A, 
+        "]"
     }
-    ]&),
+    ] &),
     Tooltip -> RowBox[{"Multivector", " ", ToBoxes@A}],
     Editable -> True
     ]],
     $Failed
 ]
 
+orderIndexWithSign[index_List, n_Integer] := With[{order = OrderingBy[index, Mod[#, n + 1] &]}, {index[[order]], Signature@order}]
 
 MultiplyIndices::badIndex = "Index `1` is incompatible with metric `2`";
 checkIndex[i_Integer, m_List] := 
@@ -271,11 +284,10 @@ checkIndex[i_Integer, m_List] :=
         $Failed
     ]
 MultiplyIndices[i_List, j_List, m_List] :=
-    Module[{index = Join[i, j], newIndex, order, sign, squares},
+    Module[{index = Join[i, j], newIndex, orderedIndex, sign, squares},
         If[AnyTrue[index, FailureQ[checkIndex[#, m]] &], Return[$Failed]];
-        order = Ordering[index];
-        sign = Signature[order];
-        {newIndex, squares} = Reap@SequenceReplace[index[[order]], {x_ ,x_} :> (Sow[x]; Nothing)];
+        {orderedIndex, sign} = orderIndexWithSign[index, Length@m];
+        {newIndex, squares} = Reap@SequenceReplace[orderedIndex, {x_ ,x_} :> (Sow[x]; Nothing)];
         If[Length@squares > 0,
             sign = sign Times@@m[[squares[[1]]]]
         ];
