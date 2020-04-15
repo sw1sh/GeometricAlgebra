@@ -18,6 +18,9 @@ Begin["`Private`"]
 
 Options[GeometricAlgebra] = {"Signature" -> {3, 0}};
 GeometricAlgebra[p_Integer, q_Integer: 0] := GeometricAlgebra["Signature" -> {p, q}]
+GeometricAlgebra[{p_Integer, q_Integer}] := GeometricAlgebra[p, q]
+GeometricAlgebra[A_GeometricAlgebra] := A
+GeometricAlgebra[] := GeometricAlgebra @ OptionValue[Multivector, "GeometricAlgebra"] (* current default GeometricAlgebra *)
 
 A_GeometricAlgebra[opt_String] /; KeyExistsQ[Options[A], opt] := Lookup[Options[A], opt]
 A_GeometricAlgebra["Metric"] :=
@@ -33,15 +36,16 @@ Multivector::truncCoord = "Coordinates are incompatible with `1`. Number of coor
 Options[Multivector] = {"GeometricAlgebra" -> GeometricAlgebra[3, 0], "Coordinates" -> SparseArray[{}, 8]};
 
 Multivector[coords_? VectorQ, OptionsPattern[]] :=
-    With[{A = OptionValue["GeometricAlgebra"]},
+    With[{A = GeometricAlgebra @ OptionValue["GeometricAlgebra"]},
         If[Length@coords > A["Order"],
             Message[Multivector::truncCoord, A, A["Order"]]
         ];
         Multivector["GeometricAlgebra" -> A, "Coordinates" -> SparseArray[coords, A["Order"]]]
     ]
 Multivector[assoc_Association, opts: OptionsPattern[]] :=
-    Multivector[Lookup[assoc, OptionValue["GeometricAlgebra"]["Indices"], 0], opts]
+    Multivector[Lookup[assoc, GeometricAlgebra[OptionValue["GeometricAlgebra"]]["Indices"], 0], opts]
 Multivector[x_? NumericQ, opts: OptionsPattern[]] := Multivector[{x}, opts]
+Multivector[arg_, signature: {__Integer}] := Multivector[arg, "GeometricAlgebra" -> GeometricAlgebra[signature]]
 Multivector[] := Multivector[{}]
 
 Multivector /: v_Multivector[opt: Alternatives@@Keys@Options@Multivector] := Lookup[Options[v], opt]
@@ -72,11 +76,16 @@ ZeroMultivector[A_GeometricAlgebra] := Multivector[{}, "GeometricAlgebra" -> A]
 ZeroMultivector[v_Multivector] := ZeroMultivector[v["GeometricAlgebra"]]
 
 
-Multivector /:  Plus[vs__Multivector] /; Length[{vs}] > 1 && Equivalent @@ (#["GeometricAlgebra"] & /@ {vs}) :=
+Multivector /: Plus[vs__Multivector] /; Length[{vs}] > 1 := Module[{
+    A = GeometricAlgebra @ MapThread[Max, #["GeometricAlgebra"]["Signature"] & /@ {vs}],
+    ws
+},
+    ws = Multivector[#, A] & /@ {vs};
     Multivector[
-        Total[#["Coordinates"] & /@ {vs}],
-        "GeometricAlgebra" -> {vs}[[1]]["GeometricAlgebra"]
+        Total[#["Coordinates"] & /@ ws],
+        "GeometricAlgebra" -> A
     ]
+]
 
 Multivector /: Plus[x: Except[_Multivector], v_Multivector] := x IdentityMultivector[v] + v
 
@@ -94,21 +103,24 @@ v_Multivector["Scalar"] := v["Coordinate", 1]
 
 (* Geometric Product *)
 
-GeometricProduct[v_Multivector, w_Multivector] /; v["GeometricAlgebra"] == w["GeometricAlgebra"] ^:=
+GeometricProduct[v_Multivector, w_Multivector] :=
     Module[{
-        x = v["Coordinates"], y = w["Coordinates"],
-        mt = v["GeometricAlgebra"]["MultiplicationTable"],
+        A = GeometricAlgebra @ MapThread[Max, {v["GeometricAlgebra"]["Signature"], w["GeometricAlgebra"]["Signature"]}],
+        x, y,
+        mt,
         coords
     },
+        x = Multivector[v, A]["Coordinates"];
+        y = Multivector[w, A]["Coordinates"];
+        mt = A["MultiplicationTable"];
         coords = mt[[All, All, 1]] Outer[Times, x, y];
         Multivector[
             GroupBy[
-                Flatten[MapIndexed[{#1, Extract[coords, #2]}&,
-                    mt[[All, All, 2]], {2}], 1],
+                Flatten[MapIndexed[{#1, Extract[coords, #2]} &, mt[[All, All, 2]], {2}], 1],
                 First,
                 Total@#[[All, 2]]&
             ],
-          "GeometricAlgebra" -> v["GeometricAlgebra"]
+          "GeometricAlgebra" -> A
         ]
     ]
 
@@ -163,8 +175,8 @@ Dual[v_Multivector] := v ** Pseudoscalar[v]
 
 Multivector[OptionsPattern[]] := Multivector[
     Multivector[OptionValue["Coordinates"], "GeometricAlgebra" -> GeometricAlgebra[Ceiling@Log2@Length[OptionValue["Coordinates"]]]],
-    OptionValue["GeometricAlgebra"]
-] /; Length[OptionValue["Coordinates"]] != OptionValue["GeometricAlgebra"]["Order"]
+    GeometricAlgebra[OptionValue["GeometricAlgebra"]]
+] /; Length[OptionValue["Coordinates"]] != GeometricAlgebra[OptionValue["GeometricAlgebra"]]["Order"]
 
 Multivector[v_Multivector, A_GeometricAlgebra] /; v["GeometricAlgebra"] == A := v
 Multivector[v_Multivector, A_GeometricAlgebra] := Multivector[
