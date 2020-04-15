@@ -13,6 +13,8 @@ LeftContraction::usage = "LeftContraction[v, w] gives a left contraction of mult
 RightContraction::usage = "RightContraction[v, w] gives a right contraction of multivectors v and w";
 ScalarProduct::usage = "ScalarProduct[v, w] gives a geometric product of multivectors v and w";
 MultivectorTransform::usage = "MultivectorTransform[v, t] applies transformation t to multivector v";
+Inversion::usage = "Inversion[v] gives a multivector with its odd grades multiplied by -1";
+Squared::usage = "Squared[v] gives v ** Inversion[v] for multivector v";
 
 Begin["`Private`"]
 
@@ -216,9 +218,13 @@ Multivector /: Reverse[v_Multivector] := Multivector[
     Association[reverseIndexCoordinate[v["GeometricAlgebra"], #1, #2] & @@@ Most@ArrayRules@v["Coordinates"]], 
     "GeometricAlgebra" -> v["GeometricAlgebra"]
 ]
-Multivector /: Projection[v_Multivector, w_Multivector] := w ** (v.w)
-Rejection[v_Multivector, w_Multivector] := (v\[Wedge]w) ** w
+Inversion[v_Multivector] := mapCoordinates[((-1)^# &@*Length /@ v["GeometricAlgebra"]["Indices"]) # &, v]
+Multivector /: Conjugate[v_Multivector] := Reverse[Inversion[v]]
 
+Multivector /: Projection[v_Multivector, w_Multivector] := w ** (v . w)
+Rejection[v_Multivector, w_Multivector] := (v \[Wedge] w) ** w
+
+Squared[v_Multivector] := v ** Inversion[v]
 
 (* Boxes *)
 
