@@ -60,6 +60,9 @@ Multivector /: Normal[v_Multivector] := Normal@v["Coordinates"]
 v_Multivector["Coordinates", n_Integer] :=
     v["Coordinates"][[binomialSum[v["GeometricAlgebra"]["Dimension"], n - 1] + 1 ;; binomialSum[v["GeometricAlgebra"]["Dimension"], n]]]
 
+Multivector /: Norm[v_Multivector] := With[{d = v["GeometricAlgebra"]["Dimension"]},
+    Sqrt @ Total[With[{s = Squared[#]}, Total[s["Coordinates", 0] + I s["Coordinates", d]]] & /@ GradeList[v]]
+]
 
 PackageExport["MultivectorBasis"]
 MultivectorBasis::usage = "MultivectorBasis[A, g] gives a list of multivectors from canonical basis of geometric algebra A with grade g";
@@ -119,6 +122,9 @@ Multivector /: Times[x: Except[_Multivector], v_Multivector] := mapCoordinates[x
 v_Multivector["Coordinate", n_Integer] := v["Coordinates"][[n]]
 v_Multivector["Scalar"] := v["Coordinate", 1]
 
+PackageExport["NormalizeMultivector"]
+
+NormalizeMultivector[v_Multivector] := Normalize[v, Norm]
 
 (* Geometric Product *)
 
