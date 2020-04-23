@@ -157,7 +157,7 @@ GeometricProduct[vs__Multivector] := Fold[GeometricProduct, {vs}]
 Multivector /: v_Multivector ** w_Multivector := GeometricProduct[v, w]
 
 
-Multivector /: Power[v_Multivector, n_Integer] := Nest[# ** v &, IdentityMultivector[v], n]
+Multivector /: Power[v_Multivector, n_Integer] := If[n < 0, Power[Inverse[v], -n], Nest[# ** v &, IdentityMultivector[v], n]]
 
 
 (* Grade *)
