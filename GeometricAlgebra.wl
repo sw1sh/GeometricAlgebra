@@ -13,14 +13,20 @@ Options[Multivector] = {
     "Inverse" -> Missing["Uncomputed"]
 };
 
-GeometricAlgebra[p_Integer, q_Integer: 0, opts: OptionsPattern[]] :=
-    GeometricAlgebra[GeometricAlgebra["Signature" -> {p, q}], opts]
-GeometricAlgebra[{p_Integer, q___Integer}, opts: OptionsPattern[]] := GeometricAlgebra[p, q, opts]
-GeometricAlgebra[A_GeometricAlgebra, opts: OptionsPattern[]] :=
-    GeometricAlgebra @@ Normal @ Merge[Join[Options[A], {opts}, Options[GeometricAlgebra]], First]
-GeometricAlgebra[] := GeometricAlgebra[OptionValue[Multivector, "GeometricAlgebra"], Options[GeometricAlgebra]] (* current default GeometricAlgebra *)
+dropOptions[opts_, keys_List]:= Normal @ KeyDrop[opts, keys]
+dropOptions[opts_, key_] := dropOptions[opts, {key}]
 
-A_GeometricAlgebra[opt_String] /; KeyExistsQ[Options[A], opt] := Lookup[Options[A], opt]
+mergeOptions[opts_, drop_: False] := Sequence @@ Normal @ Merge[If[drop, DeleteCases[Join @@ opts, _ -> Automatic], Join @@ opts], First]
+
+
+GeometricAlgebra[p_Integer, q_Integer: 0, opts: OptionsPattern[GeometricAlgebra]] :=
+    GeometricAlgebra["Signature" -> {p, q}, Sequence @@ dropOptions[{opts}, "Signature"]]
+GeometricAlgebra[{p_Integer, q___Integer}, opts: OptionsPattern[GeometricAlgebra]] := GeometricAlgebra[p, q, opts]
+GeometricAlgebra[A_GeometricAlgebra, opts: OptionsPattern[GeometricAlgebra]] :=
+    GeometricAlgebra @@ Normal @ Merge[Join[{opts}, Options[A], Options[GeometricAlgebra]], First]
+GeometricAlgebra[] := OptionValue[Multivector, "GeometricAlgebra"] (* current default GeometricAlgebra *)
+
+A_GeometricAlgebra[opt_String] /; KeyExistsQ[Options[GeometricAlgebra], opt] := Lookup[Join[Options[A], Options[GeometricAlgebra]], opt]
 A_GeometricAlgebra["Metric"] :=
     Module[{p, q},
         {p, q} = A["Signature"];
@@ -36,21 +42,22 @@ Multivector::usage = "Multivector[coords, ga] gives a multivector in GeometricAl
 
 Multivector::truncCoord = "Coordinates are incompatible with `1`. Number of coordinates should be less than `2`. Truncating excessive coordinates.";
 
-Multivector[coords_? VectorQ, OptionsPattern[]] :=
+Multivector[coords_? VectorQ, opts: OptionsPattern[]] :=
     With[{A = GeometricAlgebra @ OptionValue["GeometricAlgebra"]},
         If[Length@coords > A["Order"],
             Message[Multivector::truncCoord, A, A["Order"]]
         ];
-        Multivector["Coordinates" -> SparseArray[coords, A["Order"]], "GeometricAlgebra" -> A]
+        Multivector[Multivector["Coordinates" -> SparseArray[coords, A["Order"]], "GeometricAlgebra" -> A], opts]
     ]
 Multivector[assoc_Association, opts: OptionsPattern[]] :=
     Multivector[Lookup[assoc, GeometricAlgebra[OptionValue["GeometricAlgebra"]]["Indices"], 0], opts]
 Multivector[x_? NumericQ, opts: OptionsPattern[]] := Multivector[{x}, opts]
-Multivector[v_Multivector, args__] := Multivector[v, GeometricAlgebra[args]]
-Multivector[arg_, A_GeometricAlgebra] := Multivector[arg, "GeometricAlgebra" -> A]
-Multivector[arg_, p_Integer, q_Integer: 0] := Multivector[arg, "GeometricAlgebra" -> GeometricAlgebra[p, q]]
-Multivector[arg_, {p_Integer, q_Integer: 0}] := Multivector[arg, p, q]
+Multivector[v_Multivector, opts: OptionsPattern[]] := Multivector[mergeOptions[{{opts}, Options[v]}]]
 
+Multivector[v_Multivector, args__] := Multivector[v, GeometricAlgebra[args]]
+Multivector[arg: Except[_Multivector], A_GeometricAlgebra] := Multivector[arg, "GeometricAlgebra" -> A]
+Multivector[arg_, p_Integer, q_Integer: 0] := Multivector[arg, GeometricAlgebra[p, q]]
+Multivector[arg_, {p_Integer, q_Integer: 0}] := Multivector[arg, p, q]
 
 Multivector[] := Multivector[{}]
 
@@ -65,6 +72,7 @@ Multivector /: Norm[v_Multivector] := With[{d = v["GeometricAlgebra"]["Dimension
 ]
 
 PackageExport["MultivectorBasis"]
+
 MultivectorBasis::usage = "MultivectorBasis[A, g] gives a list of multivectors from canonical basis of geometric algebra A with grade g";
 
 MultivectorBasis[A_GeometricAlgebra, n_Integer ? Positive | All] := With[{
@@ -76,7 +84,9 @@ MultivectorBasis[A_GeometricAlgebra, n_Integer ? Positive | All] := With[{
 MultivectorBasis[A_GeometricAlgebra, n_Integer ? Negative] := MultivectorBasis[A, A["Dimension"] + n + 1]
 MultivectorBasis[A_GeometricAlgebra] := MultivectorBasis[A, All]
 MultivectorBasis[v_Multivector, args___] := MultivectorBasis[v["GeometricAlgebra"], args]
+MultivectorBasis[args__] := MultivectorBasis[GeometricAlgebra[], args]
 
+A_GeometricAlgebra["MultivectorBasis"] := MultivectorBasis[A]
 A_GeometricAlgebra["MultiplicationTable"] := A["MultiplicationTable"] =
     Outer[MultiplyIndices[#1, #2, A["Metric"]]&, A["Indices"], A["Indices"], 1]
 A_GeometricAlgebra["SignMatrix"] := A["SignMatrix"] = A["MultiplicationTable"][[All, All, 1]]
@@ -91,10 +101,10 @@ PackageExport["ZeroMultivector"]
 ZeroMultivector[A_GeometricAlgebra] := Multivector[{}, "GeometricAlgebra" -> A]
 ZeroMultivector[v_Multivector] := ZeroMultivector[v["GeometricAlgebra"]]
 
-mergeOptions[opts_] := Sequence @@ Normal @ Merge[DeleteCases[Join @@ opts, _ -> Automatic], First]
-
-mergeGeometricAlgebra[vs__Multivector] := 
-    GeometricAlgebra[MapThread[Max, #["GeometricAlgebra"]["Signature"] & /@ {vs}], mergeOptions[Options[#["GeometricAlgebra"]] & /@ {vs}]]
+mergeGeometricAlgebra[vs__Multivector] := GeometricAlgebra[
+    MapThread[Max, #["GeometricAlgebra"]["Signature"] & /@ {vs}],
+    mergeOptions[Normal @ KeyDrop[Options[#["GeometricAlgebra"]], "Signature"] & /@ {vs}, True]
+]
 
 Multivector /: Plus[vs__Multivector] /; Length[{vs}] > 1 := Module[{
     A = mergeGeometricAlgebra[vs],
@@ -147,11 +157,13 @@ GeometricProduct[v_Multivector, w_Multivector] := Module[{
             First,
             Total@#[[All, 2]]&
         ],
-      "GeometricAlgebra" -> A
+        "GeometricAlgebra" -> A
     ]
 ]
 
 GeometricProduct[vs__Multivector] := Fold[GeometricProduct, {vs}]
+
+Multivector /: Times[vs__Multivector] := GeometricProduct[vs]
 
 (* infix notation *)
 Multivector /: v_Multivector ** w_Multivector := GeometricProduct[v, w]
@@ -163,6 +175,8 @@ Multivector /: Power[v_Multivector, n_Integer] := If[n < 0, Power[Inverse[v], -n
 (* Grade *)
 
 PackageExport["Grade"]
+PackageExport["GradeList"]
+
 Grade::usage = "Grade[v, n] gives a nth grade of a Multivector v or converts a list to a multivector";
 
 binomialSum[n_Integer, k_Integer] := Module[{i}, Evaluate[Sum[Binomial[n, i], {i, 0, k}]]]
@@ -227,11 +241,11 @@ Dual::usage = "Dual[v] gives a left dual of multivector v";
 
 Pseudoscalar[A_GeometricAlgebra] := Multivector[SparseArray[{A["Order"] -> 1}], "GeometricAlgebra" -> A]
 Pseudoscalar[v_Multivector] := Pseudoscalar[v["GeometricAlgebra"]]
+Pseudoscalar[] := Pseudoscalar[GeometricAlgebra[]]
 
 LeftDual[v_Multivector] := LeftContraction[v, Reverse @ Pseudoscalar[v]]
 RightDual[v_Multivector] := RightContraction[Pseudoscalar[v], v]
 Dual = LeftDual;
-
 
 (* Multivector transformation *)
 
@@ -254,8 +268,7 @@ Multivector[v_Multivector, A_GeometricAlgebra] := Multivector[
             Most@ArrayRules@v["Coordinates"]
         ],
         A["Order"]
-    ],
-    "GeometricAlgebra" -> A
+    ], "GeometricAlgebra" -> A
 ]
 
 MultivectorTransform[v_Multivector, "Conformal"] := Module[{p, q, A, e1, e2, o, n, w},
@@ -353,38 +366,41 @@ $DefaultMultivectorFormatFunction = If[# === {},
     SubscriptBox["e", RowBox@Riffle[If[Positive@#, #, UnderscriptBox[Abs[#], "_"]] & /@ #, "\[InvisibleComma]"]]
 ] &;
 
-Multivector /: MakeBoxes[v:Multivector[OptionsPattern[]], StandardForm] := Check[
+Multivector /: MakeBoxes[v: Multivector[OptionsPattern[]], StandardForm] := Check[
     Module[{
         A = v["GeometricAlgebra"],
         rules = Cases[ArrayRules@v["Coordinates"], r:({i_Integer} -> c_) :> {i, c}],
         nonZeroPositions,
         n,
-        indices
+        indices,
+        optBoxes
     },
+    optBoxes = Riffle[ToBoxes /@ Normal[KeyDrop[Options[v], "Coordinates"]], ","];
     nonZeroPositions = rules[[All, 1]];
     indices = A["Indices"][[nonZeroPositions]];
     n = Length@nonZeroPositions;
     TemplateBox[{
-        Splice@Map[
+        Splice @ Map[
             Apply[
-                If[#1 > 1 && #2 === 1,
-                    InterpretationBox[" ", 1],
-                    Parenthesize[#2, StandardForm, Times]
+                If[ #1 > 1,
+                    Switch[#2, 1, InterpretationBox[" ", #2], -1, InterpretationBox["-", #2], _, Parenthesize[#2, StandardForm, Times]],
+                    ToBoxes[#2, StandardForm]
                 ]&
             ],
             rules
         ]
     },
     "Multivector",
-    DisplayFunction -> (Evaluate@RowBox[
+    DisplayFunction -> (Evaluate @ RowBox[
     If[Length[nonZeroPositions] > 0,
         Riffle[
             MapThread[
                 RowBox[{
                     #1,
                     If[A["FormatIndex"] === Automatic, 
-                        $DefaultMultivectorFormatFunction[#2], 
-                        #2 /. Append[A["FormatIndex"], _ -> $DefaultMultivectorFormatFunction[#2]]]}
+                        $DefaultMultivectorFormatFunction[#2],
+                        If[Head[A["FormatIndex"]] === Function, A["FormatIndex"][#2],
+                        #2 /. Append[A["FormatIndex"], _ -> $DefaultMultivectorFormatFunction[#2]]]]}
                 ] &,
                 { Slot /@ Range[n], indices}
             ],
@@ -393,14 +409,14 @@ Multivector /: MakeBoxes[v:Multivector[OptionsPattern[]], StandardForm] := Check
         {0} (* all zeros displayed as just zero *)
     ]
     ] &),
-    InterpretationFunction -> (Evaluate@RowBox[{
+    InterpretationFunction -> (Evaluate @ RowBox[{
         "Multivector", "[",
-            "<|", Splice@Riffle[MapThread[RowBox[{ToBoxes[#1], "->", #2}]&, {indices, Slot /@ Range[n]}], ","], "|>", ",",
-            "\"GeometricAlgebra\"", "->", ToBoxes@A, 
+            "<|", Splice @ Riffle[MapThread[RowBox[{ToBoxes[#1], "->", #2}]&, {indices, Slot /@ Range[n]}], ","], "|>", ",",
+            Splice @ optBoxes,
         "]"
     }
     ] &),
-    Tooltip -> RowBox[{"Multivector", " ", ToBoxes@A}],
+    Tooltip -> RowBox[{"Multivector", " ", ToBoxes @ A}],
     Editable -> True
     ]],
     $Failed
