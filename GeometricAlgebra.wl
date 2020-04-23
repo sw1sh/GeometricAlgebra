@@ -7,7 +7,11 @@ PackageExport["GeometricAlgebra"]
 GeometricAlgebra::usage = "GeometricAlgebra[p, q] gives an underlying algebra object for use with Multivector";
 
 Options[GeometricAlgebra] = {"Signature" -> {3, 0}, "FormatIndex" -> Automatic};
-Options[Multivector] = {"GeometricAlgebra" -> GeometricAlgebra[3], "Coordinates" -> SparseArray[{}, 8]};
+Options[Multivector] = {
+    "GeometricAlgebra" -> GeometricAlgebra[3],
+    "Coordinates" -> SparseArray[{}, 8],
+    "Inverse" -> Missing["Uncomputed"]
+};
 
 GeometricAlgebra[p_Integer, q_Integer: 0, opts: OptionsPattern[]] :=
     GeometricAlgebra[GeometricAlgebra["Signature" -> {p, q}], opts]
@@ -295,20 +299,47 @@ Rejection[v_Multivector, w_Multivector] := (v \[Wedge] w) ** w
 Squared[v_Multivector] := v ** Involute[v]
 
 
+(* Inverse *)
+
+PackageExport[solveCoordinates]
+
+solveCoordinates[f_Function, A_GeometricAlgebra] := Module[{w, sol},
+    Block[{x},
+        w = Array[Subscript[x, #] &, A["Order"]];
+        sol = Solve[Thread[Normal[f[Multivector[w, A]]] == Normal[ZeroMultivector[A]]], w];
+        If[ Length[sol] == 0 || Not[FreeQ[sol, ComplexInfinity | Indeterminate, Infinity]],
+            $Failed,
+            w /. First[N @ sol] /. Thread[w -> 0]
+        ]
+    ]
+]
+
+Multivector::noinv = "Can't inverse a multivector";
+
+Multivector /: Inverse[v_Multivector] :=
+    Module[{A = v["GeometricAlgebra"], coords, inv},
+        inv = Lookup[Options[v], "Inverse", OptionValue[Multivector, "Inverse"]];
+        If[ MissingQ[inv],
+            coords = solveCoordinates[v ** # - IdentityMultivector[v] &, A];
+            If[ FailureQ[coords],
+                Message[Multivector::noinv]; Inverse[Multivector[v, "Inverse" -> None]],
+                Multivector["Coordinates" -> coords, "Inverse" -> v, Sequence @@ Options[v]]
+            ]
+        ]
+    ] /; Lookup[Options[v], "Inverse", OptionValue[Multivector, "Inverse"]] =!= None
+
+Multivector /: Divide[v_, w_Multivector] := Multivector[v, w["GeometricAlgebra"]] ** Inverse[w]
+
+
 (* Boxes *)
 
 PackageExport["$DefaultMultivectorFormatFunction"]
 
-GeometricAlgebra /: MakeBoxes[A_GeometricAlgebra, StandardForm]:=
-    With[{signature = A["Signature"]},
-        TemplateBox[
-            signature,
-            "GeometricAlgebra",
-            DisplayFunction -> (SubscriptBox["\[DoubleStruckCapitalG]", RowBox[{#1, ",", #2}]]&),
-            Editable -> True,
-            Tooltip -> "Geometric Algebra"
-      ]
-    ]
+GeometricAlgebra /: MakeBoxes[A_GeometricAlgebra, StandardForm] := With[{
+    box = SubscriptBox["\[DoubleStruckCapitalG]", RowBox @ Riffle[ToString /@ A["Signature"], ","]]
+},
+    InterpretationBox[box, A, Tooltip -> "Geometric Algebra"]
+]
 
 
 $DefaultMultivectorFormatFunction = If[# === {},
