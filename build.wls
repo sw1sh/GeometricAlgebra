@@ -1,5 +1,4 @@
 #!/usr/bin/env wolframscript
-(* ::Package:: *)
 
 Check[
     Get[FileNameJoin[{DirectoryName[$InputFileName], "scripts", "buildInit.wl"}]];
