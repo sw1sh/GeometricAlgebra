@@ -197,6 +197,18 @@ x_ ** y_ := GeometricProduct[x, y]
 Protect[NonCommutativeMultiply]
 
 
+UsingFrontEnd[
+    SetOptions[EvaluationNotebook[],
+        InputAliases -> {"gp" ->
+        TemplateBox[{"\[Placeholder]", "\[Placeholder]"},
+            "GeometricProduct",
+            InterpretationFunction -> (RowBox[{#1, "**", #2}] &),
+            DisplayFunction -> (RowBox[{#1, "\[InvisibleSpace]", #2}] &)]
+        }
+    ]
+]
+
+
 Multivector /: Power[v_Multivector, n_Integer] := If[n < 0, Power[Inverse[v], -n], Nest[# ** v &, IdentityMultivector[v], n]]
 
 
