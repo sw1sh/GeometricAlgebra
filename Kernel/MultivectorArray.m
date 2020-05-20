@@ -7,12 +7,12 @@ Options[MultivectorArray] = {"Components" -> {}, "Shape" -> {}}
 
 MultivectorArray::badShape = "Specified shape `1` is not cmopatible with dimensions `2`";
 
-MultivectorArray[vs_ /; ArrayQ[vs, _, MatchQ[_Multivector]], shape: {___Integer}] := If[
+MultivectorArray[vs_, shape: {___Integer}] /; ArrayQ[vs, _, MatchQ[_Multivector]] := If[
     Dimensions[vs] == Abs[DeleteCases[shape, 0]],
     MultivectorArray["Components" -> vs, "Shape" -> shape],
     Message[MultivectorArray::badShape, shape, Dimensions[vs]]; $Failed
 ]
-MultivectorArray[vs_ /; ArrayQ[vs, _, MatchQ[_Multivector]]] := MultivectorArray[vs, Dimensions[vs]]
+MultivectorArray[vs_ ] /; ArrayQ[vs, _, MatchQ[_Multivector]] := MultivectorArray[vs, Dimensions[vs]]
 
 MultivectorArray[v_Multivector, shape_: {}] := MultivectorArray["Components" -> v, "Shape" -> {}]
 
