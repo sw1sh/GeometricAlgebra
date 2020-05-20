@@ -23,4 +23,10 @@ VerificationTest[
     TestID -> "Grade computation"
 ]
 
+VerificationTest[
+    MakeBoxes[x Multivector[{1,2,3}, "GeometricAlgebra" -> GeometricAlgebra[4,1]], StandardForm],
+    $Failed,
+    TestID -> "Boxes"
+]
+
 EndTestSection[]

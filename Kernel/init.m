@@ -1,0 +1,1 @@
+Get["GeometricAlgebra`Kernel`GeometricAlgebra`"];

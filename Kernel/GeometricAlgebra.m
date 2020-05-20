@@ -91,8 +91,25 @@ A_GeometricAlgebra["MultiplicationTable"] := A["MultiplicationTable"] =
     Outer[MultiplyIndices[#1, #2, A["Metric"]]&, A["Indices"], A["Indices"], 1]
 A_GeometricAlgebra["SignMatrix"] := A["SignMatrix"] = A["MultiplicationTable"][[All, All, 1]]
 
-mapCoordinates[f_, v_Multivector] := Multivector[f[v["Coordinates"]], "GeometricAlgebra" -> v["GeometricAlgebra"]]
+mapCoordinates[f_, v_Multivector] := Multivector[reduceFunctions[f[v["Coordinates"]]], "GeometricAlgebra" -> v["GeometricAlgebra"]]
 
+PackageExport[reduceFunctions]
+
+constantFunction[f_Function] := f
+constantFunction[x_] := Function[x]
+
+functionBody[Function[body_]] := body
+functionBody[x_] := x
+
+reduceFunctions[expr_] := Activate @ FixedPoint[ReplaceRepeated[#, {
+    HoldPattern[(f: Function[x_])[y_]] :> With[{e = Inactivate[f[y], D]}, Function[e] /; True],
+    f: HoldPattern[Function[x_]] /; FreeQ[Hold[x], _Slot, {0, \[Infinity]}] :> x,
+(*    f: HoldPattern[Function[{xs__}, x_]] /; FreeQ[x, Alternatives[xs], {0, \[Infinity]}]:> x,*)
+  (*  HoldPattern[Function[x_]] :> With[{e = Inactivate[x, D]}, Function[e] /; True],*)
+    HoldPattern[Function[Function[x_]]] :> With[{e = Simplify @ Inactivate[x, D]}, Function[e] /; True],
+    HoldPattern[Plus[xs___, f_Function, ys___]] :> With[{e = Plus @@ (functionBody /@ Inactivate[{xs, f, ys}, D])}, Function[e] /; True],
+    HoldPattern[Times[xs___, f_Function, ys___]] /; FreeQ[{xs, ys}, _Function, {0, \[Infinity]}] :> With[{e = Times @@ (functionBody /@ Inactivate[{xs, f, ys}, D])}, Function[e] /; True]
+}] &, expr]
 
 (* Addition *)
 
@@ -112,7 +129,7 @@ Multivector /: Plus[vs__Multivector] /; Length[{vs}] > 1 := Module[{
 },
     ws = Multivector[#, A] & /@ {vs};
     Multivector[
-        Total[#["Coordinates"] & /@ ws],
+        Activate @ reduceFunctions[Total[#["Coordinates"] & /@ ws]],
         "GeometricAlgebra" -> A
     ]
 ]
@@ -141,6 +158,12 @@ NormalizeMultivector[v_Multivector] := Normalize[v, Norm]
 PackageExport["GeometricProduct"]
 GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric product of multivectors v and w";
 
+ClearAll[coordinateTimes]
+coordinateTimes[f: Function[x_], Function[y_]] :=  reduceFunctions[Function[f[y]]]
+coordinateTimes[f_Function, y_] := f[y]
+coordinateTimes[x_, Function[y_]] := reduceFunctions[Function[x ** y]]
+coordinateTimes[v_, w_] := GeometricProduct[v, w]
+
 GeometricProduct[v_Multivector, w_Multivector] := Module[{
     A = mergeGeometricAlgebra[v, w],
     x, y,
@@ -150,9 +173,9 @@ GeometricProduct[v_Multivector, w_Multivector] := Module[{
     x = Multivector[v, A]["Coordinates"];
     y = Multivector[w, A]["Coordinates"];
     mt = A["MultiplicationTable"];
-    coords = mt[[All, All, 1]] Outer[Times, x, y];
+    coords = mt[[All, All, 1]] Outer[coordinateTimes, x, y];
     Multivector[
-        GroupBy[
+        Association @ Activate @ Normal @ reduceFunctions @ GroupBy[
             Flatten[MapIndexed[{#1, Extract[coords, #2]} &, mt[[All, All, 2]], {2}], 1],
             First,
             Total@#[[All, 2]]&
@@ -163,10 +186,15 @@ GeometricProduct[v_Multivector, w_Multivector] := Module[{
 
 GeometricProduct[vs__Multivector] := Fold[GeometricProduct, {vs}]
 
+GeometricProduct[x_, y_] := x y
 Multivector /: Times[vs__Multivector] := GeometricProduct[vs]
 
 (* infix notation *)
-Multivector /: v_Multivector ** w_Multivector := GeometricProduct[v, w]
+Unprotect[NonCommutativeMultiply]
+(x_? NumericQ) ** y_ := x y
+x_ ** (y_? NumericQ) := x y
+x_ ** y_ := GeometricProduct[x, y]
+Protect[NonCommutativeMultiply]
 
 
 Multivector /: Power[v_Multivector, n_Integer] := If[n < 0, Power[Inverse[v], -n], Nest[# ** v &, IdentityMultivector[v], n]]
@@ -328,7 +356,7 @@ solveCoordinates[f_Function, A_GeometricAlgebra] := Module[{w, sol},
         sol = Solve[Thread[Normal[f[Multivector[w, A]]] == Normal[ZeroMultivector[A]]], w];
         If[ Length[sol] == 0 || Not[FreeQ[sol, ComplexInfinity | Indeterminate, Infinity]],
             $Failed,
-            w /. First[N @ sol] /. Thread[w -> 0]
+            w /. First[sol] /. Thread[w -> 0]
         ]
     ]
 ]
