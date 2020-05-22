@@ -203,7 +203,7 @@ UsingFrontEnd[
         TemplateBox[{"\[Placeholder]", "\[Placeholder]"},
             "GeometricProduct",
             InterpretationFunction -> (RowBox[{#1, "**", #2}] &),
-            DisplayFunction -> (RowBox[{#1, "\[InvisibleSpace]", #2}] &)]
+            DisplayFunction -> (RowBox[{#1, " ", #2}] &)]
         }
     ]
 ]
@@ -286,6 +286,9 @@ Pseudoscalar[] := Pseudoscalar[GeometricAlgebra[]]
 LeftDual[v_Multivector] := LeftContraction[v, Reverse @ Pseudoscalar[v]]
 RightDual[v_Multivector] := RightContraction[Pseudoscalar[v], v]
 Dual = LeftDual;
+
+Multivector /: Tr[v_Multivector] := v + Dual[v]
+Multivector /: Det[v_Multivector] := v ** Dual[v]
 
 (* Multivector transformation *)
 
@@ -388,6 +391,17 @@ Multivector /: Inverse[v_Multivector] :=
     ] /; Lookup[Options[v], "Inverse", OptionValue[Multivector, "Inverse"]] =!= None
 
 Multivector /: Divide[v_, w_Multivector] := Multivector[v, w["GeometricAlgebra"]] ** Inverse[w]
+
+
+(* Root *)
+
+Multivector /: Root[v_Multivector, n_Integer] :=
+    Module[{A = v["GeometricAlgebra"], coords},
+        coords = solveCoordinates[# ^ n - v &, A];
+        Multivector["Coordinates" -> coords, Sequence @@ Options[v]]
+    ]
+
+Multivector /: Power[v_Multivector, p_Rational] := With[{n = Numerator[p], d = Denominator[p]}, Root[v ^ n, d]]
 
 
 (* Boxes *)
