@@ -82,9 +82,13 @@ MultivectorBasis[A_GeometricAlgebra, n_Integer ? Positive | All] := With[{
     Table[Multivector[SparseArray[{k -> 1}, A["Order"]], "GeometricAlgebra" -> A], {k, from, to}]
 ]
 MultivectorBasis[A_GeometricAlgebra, n_Integer ? Negative] := MultivectorBasis[A, A["Dimension"] + n + 1]
+MultivectorBasis[A_GeometricAlgebra, 0] := {Multivector[1, A]}
 MultivectorBasis[A_GeometricAlgebra] := MultivectorBasis[A, All]
+MultivectorBasis[A_GeometricAlgebra, {args___}] := MultivectorBasis[A, #] & /@ {args}
 MultivectorBasis[v_Multivector, args___] := MultivectorBasis[v["GeometricAlgebra"], args]
 MultivectorBasis[args__] := MultivectorBasis[GeometricAlgebra[], args]
+
+MultivectorBasis[] := MultivectorBasis[All]
 
 A_GeometricAlgebra["MultivectorBasis"] := MultivectorBasis[A]
 A_GeometricAlgebra["MultiplicationTable"] := A["MultiplicationTable"] =
