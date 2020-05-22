@@ -12,7 +12,7 @@ MultivectorArray[vs_, shape: {___Integer}] /; ArrayQ[vs, _, MatchQ[_Multivector]
     MultivectorArray["Components" -> vs, "Shape" -> shape],
     Message[MultivectorArray::badShape, shape, Dimensions[vs]]; $Failed
 ]
-MultivectorArray[vs_ ] /; ArrayQ[vs, _, MatchQ[_Multivector]] := MultivectorArray[vs, Dimensions[vs]]
+MultivectorArray[vs_] /; ArrayQ[vs, _, MatchQ[_Multivector]] := MultivectorArray[vs, Dimensions[vs]]
 
 MultivectorArray[v_Multivector, shape_: {}] := MultivectorArray["Components" -> v, "Shape" -> {}]
 
@@ -30,8 +30,15 @@ expandDims[va_MultivectorArray, sign_Integer: 1, dim_Integer: -1] /; sign != 0 :
     MultivectorArray[If[va["Rank"] == 0, {va["Components"]}, ArrayReshape[va["Components"], Abs[shape]]], shape]
 ]
 
-MultivectorArray /: f_[va_MultivectorArray, vb_MultivectorArray] /; va["Rank"] > 0 && vb["Rank"] > 0 := With[{
-    outer = Outer[f, va["Components"], vb["Components"]],
+
+MultivectorArray /: f_[v_Multivector, va_MultivectorArray] := mapComponents[f[v, #] &, va]
+MultivectorArray /: f_[va_MultivectorArray, v_Multivector] := mapComponents[f[#, v] &, va]
+
+MultivectorArray /: f_[x_ ? NumericQ, va_MultivectorArray] := mapComponents[f[x, #] &, va]
+MultivectorArray /: f_[va_MultivectorArray, y_ ? NumericQ] := mapComponents[f[#, y] &, va]
+
+MultivectorArray /: (NonCommutativeMultiply | GeometricProduct)[va_MultivectorArray, vb_MultivectorArray] /; va["Rank"] > 0 && vb["Rank"] > 0 := With[{
+    outer = Outer[GeometricProduct, va["Components"], vb["Components"]],
     shape = Join[va["Shape"], vb["Shape"]],
     shapeContraction = {va["Rank"], va["Rank"] + 1}
 },
@@ -40,8 +47,18 @@ MultivectorArray /: f_[va_MultivectorArray, vb_MultivectorArray] /; va["Rank"] >
         MultivectorArray[outer, shape]
     ]
 ]
-MultivectorArray /: f_[va_MultivectorArray, vb_MultivectorArray] := f[expandDims[va, -1], expandDims[vb, 1, 1]]
-MultivectorArray /: f[vas__MultivectorArray] := Fold[f, {vas}]
+MultivectorArray /: (NonCommutativeMultiply | GeometricProduct)[va_MultivectorArray, vb_MultivectorArray] := GeometricProduct[expandDims[va, -1], expandDims[vb, 1, 1]]
+
+MultivectorArray /: f_[va_MultivectorArray, vb_MultivectorArray] /; va["Shape"] == vb["Shape"] :=
+    MultivectorArray[f[va["Components"], vb["Components"]], va["Shape"]]
+
+MultivectorArray /: Plus[vas__MultivectorArray] := Fold[Plus, {vas}]
+
+
+PackageExport[MultivectorMatrix]
+
+MultivectorMatrix[v_MultivectorArray] := Map[#["Scalar"] + I #["Coordinate", -1] &,
+    v["Components"], {Length[v["Shape"]]}]
 
 
 unaryOps = Grade | Reverse | Involute | Conjugate | LeftDual | RightDual | Dual | MultivectorTransform;
