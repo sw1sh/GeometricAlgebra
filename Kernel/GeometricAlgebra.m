@@ -242,6 +242,9 @@ Grade[coords_List, k_Integer, opts : OptionsPattern[Multivector]] := With[{
     Multivector[SparseArray[MapIndexed[skipDimension + #2 -> #1 &, Take[coords, UpTo[bladeDimension]]], OptionValue["GeometricAlgebra"]["Order"]], opts]
 ]
 
+Grade[v_Multivector, "Even"] := Total[Grade[v, #] & /@ Range[0, v["GeometricAlgebra"]["Dimension"], 2]]
+Grade[v_Multivector, "Odd"] := Total[Grade[v, #] & /@ Range[1, v["GeometricAlgebra"]["Dimension"], 2]]
+
 (* Product contractions *)
 
 PackageExport["LeftContraction"]
