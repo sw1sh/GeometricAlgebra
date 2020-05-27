@@ -81,19 +81,21 @@ shapeGridBoxes[array_, shape_] := If[shape === {},
     ]
 ]
 
-MultivectorArray /: MakeBoxes[va: MultivectorArray[OptionsPattern[]], StandardForm] := Module[{
+MultivectorArray /: MakeBoxes[va: MultivectorArray[opts: OptionsPattern[]], _] := Module[{
     shape = va["Shape"],
-    dims, rank,
+    components,
+    dims, size,
     boxes,
     display,
     interpret
 },
     dims = Abs @ shape;
-    rank = Times @@ dims;
-    boxes = If[ListQ[va["Components"]], Map[ToBoxes, Flatten @ va["Components"]], {ToBoxes @ va["Components"]}];
-    display = If[shape === {}, Slot[1], shapeGridBoxes[ArrayReshape[Range[rank], dims], shape]];
-    interpret = RowBox[{"MultivectorArray", "[", 
-        "\"Components\"", "->", If[ListQ[va["Components"]], ToBoxes[ArrayReshape[Slot /@ Range[rank], dims]], Slot[1]]
+    size = Times @@ dims;
+    components = First @ Map[MakeBoxes, Lookup[List @@ RuleDelayed @@@ Hold[opts], "Components", None, Defer], {va["Rank"] + 1}];
+    boxes = If[va["Rank"] > 0, Flatten @ components, {components}];
+    display = If[shape === {}, Slot[1], shapeGridBoxes[ArrayReshape[Range[size], dims], shape]];
+    interpret = RowBox[{"MultivectorArray", "[",
+        "\"Components\"", "->", If[va["Rank"] > 0, ToBoxes[ArrayReshape[Slot /@ Range[size], dims]], Slot[1]]
             /. slot_String /; StringMatchQ[slot, "#" ~~ DigitCharacter..] :> ToExpression[slot], ",",
         "\"Shape\"", "->", ToBoxes[shape],
     "]"}];

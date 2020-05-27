@@ -421,47 +421,80 @@ GeometricAlgebra /: MakeBoxes[A_GeometricAlgebra, StandardForm] := With[{
     InterpretationBox[box, A, Tooltip -> "Geometric Algebra"]
 ]
 
+PackageScope["$DefaultMultivectorFormatFunction"]
 
-$DefaultMultivectorFormatFunction = If[# === {},
-    Nothing, (* don't display zero coefficient terms *)
-    SubscriptBox["e", RowBox@Riffle[If[Positive@#, #, UnderscriptBox[Abs[#], "_"]] & /@ #, "\[InvisibleComma]"]]
-] &;
+$DefaultMultivectorFormatFunction = Function[index,
+    If[index === {},
+        RowBox[{""}], (* don't display zero coefficient terms *)
+        SubscriptBox["e", RowBox @ Riffle[If[Positive @ #, #, UnderscriptBox[Abs[#], "_"]] & /@ index, "\[InvisibleComma]"]]
+    ]
+];
 
-Multivector /: MakeBoxes[v: Multivector[OptionsPattern[]], StandardForm] := Check[
+
+PackageExport["GeometricIndexBoxes"]
+
+GeometricIndexBoxes[A_GeometricAlgebra, index_] :=
+    If[A["FormatIndex"] === Automatic, 
+        $DefaultMultivectorFormatFunction[index],
+        If[Head[A["FormatIndex"]] === Function, A["FormatIndex"][index],
+            index /. Append[A["FormatIndex"], _ -> $DefaultMultivectorFormatFunction[index]]]]
+
+GeometricIndexBoxes[index_] := GeometricIndexBoxes[Lookup[Options[Multivector], "GeometricAlgebra"], index]
+GeometricIndexBoxes[A_GeometricAlgebra, {indices__List}] := GeometricIndexBoxes[A, #] & /@ {indices}
+GeometricIndexBoxes[A_GeometricAlgebra] := GeometricIndexBoxes[A, A["Indices"]]
+GeometricIndexBoxes[] := GeometricIndexBoxes[Lookup[Options[Multivector], "GeometricAlgebra"]]
+
+
+Multivector /: MakeBoxes[v: Multivector[opts: OptionsPattern[]], _] :=
     Module[{
-        A = v["GeometricAlgebra"],
-        rules = Cases[ArrayRules@v["Coordinates"], r:({i_Integer} -> c_) :> {i, c}],
+        A = OptionValue[Multivector, {opts}, "GeometricAlgebra"],
+        holdCoords, coords,
+        rules,
         nonZeroPositions,
         n,
         indices,
+        display, interpret,
+        boxes,
         optBoxes
     },
-    optBoxes = Riffle[ToBoxes /@ Normal[KeyDrop[Options[v], "Coordinates"]], ","];
+    holdCoords = Lookup[List @@ RuleDelayed @@@ Hold[opts], "Coordinates", None, Hold];
+    coords =  Which[
+        MatchQ[holdCoords, Hold[SparseArray[Automatic, ___]]],
+        Map[Hold, ReleaseHold @ holdCoords],
+        MatchQ[holdCoords, Hold[SparseArray[___]]],
+        First @ MapAt[Hold, holdCoords, {1, 1, All, 2}],
+        True,
+        First @ MapAt[Hold, holdCoords, {1, All}]
+    ];
+    rules = Cases[ArrayRules[coords], ({i_Integer} -> c_) /; c =!= Hold[0] :> {i, c}];
+    optBoxes = ToBoxes /@ FilterRules[{opts}, Except["Coordinates"]];
+    If[Length[optBoxes] > 0,
+        optBoxes = Riffle[optBoxes, ",", {1, 2 Length[optBoxes], 2}]
+    ];
     nonZeroPositions = rules[[All, 1]];
     indices = A["Indices"][[nonZeroPositions]];
-    n = Length@nonZeroPositions;
-    TemplateBox[{
-        Splice @ Map[
+    n = Length @ nonZeroPositions;
+    coords = Riffle[MakeBoxes /@ MapThread[Rule, {nonZeroPositions, Slot /@ Range[n]}], ","];
+    boxes = ReleaseHold @ Map[
             Apply[
-                If[ #1 > 1,
-                    Switch[#2, 1, InterpretationBox[" ", #2], -1, InterpretationBox["-", #2], _, Parenthesize[#2, StandardForm, Times]],
-                    ToBoxes[#2, StandardForm]
-                ]&
+                Function[{index, holdCoord}, If[ index > 1,
+                    Function[coord, Switch[coord,
+                        1, InterpretationBox["", coord],
+                        -1, InterpretationBox["-", coord],
+                        _, Parenthesize[coord, StandardForm, Times]
+                    ], HoldFirst] @@ holdCoord,
+                    MakeBoxes @@ holdCoord
+                ], HoldRest]
             ],
             rules
-        ]
-    },
-    "Multivector",
-    DisplayFunction -> (Evaluate @ RowBox[
+        ];
+    display = RowBox[
     If[Length[nonZeroPositions] > 0,
         Riffle[
             MapThread[
                 RowBox[{
                     #1,
-                    If[A["FormatIndex"] === Automatic, 
-                        $DefaultMultivectorFormatFunction[#2],
-                        If[Head[A["FormatIndex"]] === Function, A["FormatIndex"][#2],
-                        #2 /. Append[A["FormatIndex"], _ -> $DefaultMultivectorFormatFunction[#2]]]]}
+                    GeometricIndexBoxes[A, #2]}
                 ] &,
                 { Slot /@ Range[n], indices}
             ],
@@ -469,19 +502,27 @@ Multivector /: MakeBoxes[v: Multivector[OptionsPattern[]], StandardForm] := Chec
         ],
         {0} (* all zeros displayed as just zero *)
     ]
-    ] &),
-    InterpretationFunction -> (Evaluate @ RowBox[{
-        "Multivector", "[",
-            "<|", Splice @ Riffle[MapThread[RowBox[{ToBoxes[#1], "->", #2}]&, {indices, Slot /@ Range[n]}], ","], "|>", ",",
-            Splice @ optBoxes,
-        "]"
-    }
-    ] &),
-    Tooltip -> RowBox[{"Multivector", " ", ToBoxes @ A}],
-    Editable -> True
-    ]],
-    $Failed
-]
+    ];
+    interpret = RowBox[{"Multivector", "[",
+        "\"Coordinates\"", "->", 
+        "SparseArray", "[", "{",
+            Sequence @@ If[n > 0, 
+                Riffle[MapThread[RowBox[{ToBoxes[#1], "->", #2}] &, {nonZeroPositions, Slot /@ Range[n]}], ","],
+                {}
+            ],
+            "}", ",",ToBoxes[A["Order"]],
+        "]",
+        Sequence @@ optBoxes, "]"}
+    ];
+    TemplateBox[
+        boxes,
+        "Multivector",
+        DisplayFunction -> (Evaluate @ display &),
+        InterpretationFunction -> (Evaluate @ interpret &),
+        Tooltip -> RowBox[{"Multivector", " ", ToBoxes @ A}],
+        Editable -> True
+    ]]
+
 
 orderIndexWithSign[index_List, n_Integer] := With[{order = OrderingBy[index, Mod[#, n + 1] &]}, {index[[order]], Signature@order}]
 
