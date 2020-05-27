@@ -49,16 +49,26 @@ MultivectorArray /: (NonCommutativeMultiply | GeometricProduct)[va_MultivectorAr
 ]
 MultivectorArray /: (NonCommutativeMultiply | GeometricProduct)[va_MultivectorArray, vb_MultivectorArray] := GeometricProduct[expandDims[va, -1], expandDims[vb, 1, 1]]
 
-MultivectorArray /: f_[va_MultivectorArray, vb_MultivectorArray] /; va["Shape"] == vb["Shape"] :=
+MultivectorArray /: f_Symbol[va_MultivectorArray, vb_MultivectorArray] /; MemberQ[Attributes[f], NumericFunction] && va["Shape"] == vb["Shape"] :=
     MultivectorArray[f[va["Components"], vb["Components"]], va["Shape"]]
 
 MultivectorArray /: Plus[vas__MultivectorArray] := Fold[Plus, {vas}]
 
 
-PackageExport[MultivectorMatrix]
+(* Transpose *)
 
-MultivectorMatrix[v_MultivectorArray] := Map[#["Scalar"] + I #["Coordinate", -1] &,
-    v["Components"], {Length[v["Shape"]]}]
+transposeShape[shape_] := - shape
+transposeShape[shape_, n_Integer] := MapAt[Minus, shape, {n}]
+transposeShape[shape_List] /; Length[shape] > 1 := transposeShape[shape, 1 <-> 2]
+transposeShape[shape_List, levels_List] /; Length[shape] == Length[levels] := - shape[[levels]]
+transposeShape[shape_List, m_Integer <-> n_Integer] /; Length[shape] > 1 := MapAt[Minus, Permute[shape, Cycles[{{m, n}}]], {{m}, {n}}]
+
+
+MultivectorArray /: Transpose[va_MultivectorArray, args___] :=
+    If[va["Rank"] > 1,
+      MultivectorArray[Transpose[va["Components"], args], transposeShape[va["Shape"], args]],
+      MultivectorArray[va["Components"], transposeShape[va["Shape"]]]
+    ]
 
 
 unaryOps = Grade | Reverse | Involute | Conjugate | LeftDual | RightDual | Dual | MultivectorTransform;
@@ -67,11 +77,16 @@ MultivectorArray /: (f: unaryOps)[va_MultivectorArray, args___] :=
 
 PackageExport["ShapeContract"]
 
-ShapeContract[va_MultivectorArray] := With[{
+shapeContract[va_MultivectorArray] := With[{
     shapeContractions = SequencePosition[va["Shape"], {x_ ? Negative, y_ ? Positive} /; x == -y]
 },
-    MultivectorArray[Fold[Total, va, shapeContractions], Delete[va["Shape"], Thread @ shapeContractions]]
+    If[Length[shapeContractions] > 0,
+        MultivectorArray[TensorContract[va["Components"], shapeContractions], Delete[va["Shape"], List /@ Flatten @ shapeContractions]],
+        va
+    ]
 ]
+
+ShapeContract[va_MultivectorArray] := FixedPoint[shapeContract, va]
 
 shapeGridBoxes[array_, shape_] := If[shape === {},
     Slot[array],

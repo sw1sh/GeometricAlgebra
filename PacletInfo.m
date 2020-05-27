@@ -2,7 +2,7 @@
 
 Paclet[
     Name -> "GeometricAlgebra",
-    Version -> "0.2",
+    Version -> "0.5",
     MathematicaVersion -> "12.1+",
     Description -> "A set of tools for doing geometric algebra",
     Creator -> "Nikolay Murzin",
