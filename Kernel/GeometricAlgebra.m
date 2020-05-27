@@ -304,8 +304,8 @@ LeftDual[v_Multivector] := LeftContraction[v, Reverse @ Pseudoscalar[v]]
 RightDual[v_Multivector] := RightContraction[Pseudoscalar[v], v]
 Dual = LeftDual;
 
-Multivector /: Tr[v_Multivector] := v + Dual[v]
-Multivector /: Det[v_Multivector] := v ** Dual[v]
+Multivector /: Tr[v_Multivector] := v + Conjugate[v]
+Multivector /: Det[v_Multivector] := v ** Conjugate[v]
 
 (* Multivector transformation *)
 
