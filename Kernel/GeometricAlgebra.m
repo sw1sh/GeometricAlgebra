@@ -289,6 +289,16 @@ Dual::usage = "Dual[v] gives a left dual of multivector v";
 Pseudoscalar[A_GeometricAlgebra] := Multivector[SparseArray[{A["Order"] -> 1}], "GeometricAlgebra" -> A]
 Pseudoscalar[v_Multivector] := Pseudoscalar[v["GeometricAlgebra"]]
 Pseudoscalar[] := Pseudoscalar[GeometricAlgebra[]]
+A_GeometricAlgebra["Pseudoscalar"] := Pseudoscalar[A]
+
+A_GeometricAlgebra["Null", n_Integer] := With[{
+    i = Min[Min[A["Signature"]], Abs[n]]
+},
+    Multivector[<|{i} -> 1 / 2, {-i} -> Sign[n] 1 / 2|>, A]
+]
+
+A_GeometricAlgebra["Idempotent", n_Integer] := A["Null", - n] ** A["Null", n]
+
 
 LeftDual[v_Multivector] := LeftContraction[v, Reverse @ Pseudoscalar[v]]
 RightDual[v_Multivector] := RightContraction[Pseudoscalar[v], v]
