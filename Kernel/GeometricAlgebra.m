@@ -6,36 +6,36 @@ Package["GeometricAlgebra`"]
 PackageExport["GeometricAlgebra"]
 GeometricAlgebra::usage = "GeometricAlgebra[p, q] gives an underlying algebra object for use with Multivector";
 
-Options[GeometricAlgebra] = {"Signature" -> {3, 0}, "FormatIndex" -> Automatic};
+Options[GeometricAlgebra] = {"Signature" -> {3, 0}, "Basis" -> "Standard", "FormatIndex" -> Automatic};
 Options[Multivector] = {
     "GeometricAlgebra" -> GeometricAlgebra[3],
     "Coordinates" -> SparseArray[{}, 8],
     "Inverse" -> Missing["Uncomputed"]
 };
 
-dropOptions[opts_, keys_List]:= Normal @ KeyDrop[opts, keys]
-dropOptions[opts_, key_] := dropOptions[opts, {key}]
-
 mergeOptions[opts_, drop_: False] := Sequence @@ Normal @ Merge[If[drop, DeleteCases[Join @@ opts, _ -> Automatic], Join @@ opts], First]
 
 
 GeometricAlgebra[p_Integer, q_Integer: 0, opts: OptionsPattern[GeometricAlgebra]] :=
-    GeometricAlgebra["Signature" -> {p, q}, Sequence @@ dropOptions[{opts}, "Signature"]]
+    GeometricAlgebra["Signature" -> {p, q}, Sequence @@ FilterRules[{opts}, Except["Signature"]]]
 GeometricAlgebra[{p_Integer, q___Integer}, opts: OptionsPattern[GeometricAlgebra]] := GeometricAlgebra[p, q, opts]
 GeometricAlgebra[A_GeometricAlgebra, opts: OptionsPattern[GeometricAlgebra]] :=
     GeometricAlgebra @@ Normal @ Merge[Join[{opts}, Options[A], Options[GeometricAlgebra]], First]
 GeometricAlgebra[] := OptionValue[Multivector, "GeometricAlgebra"] (* current default GeometricAlgebra *)
 
 A_GeometricAlgebra[opt_String] /; KeyExistsQ[Options[GeometricAlgebra], opt] := Lookup[Join[Options[A], Options[GeometricAlgebra]], opt]
-A_GeometricAlgebra["Metric"] :=
+A_GeometricAlgebra["Metric"] /; A["Basis"] == "Standard" :=
     Module[{p, q},
         {p, q} = A["Signature"];
         Join[ConstantArray[1, p], ConstantArray[-1, q]]
     ]
+A_GeometricAlgebra["Metric"] := ConstantArray[0, A["Dimension"]]
+
 A_GeometricAlgebra["Dimension"] := Total@A["Signature"]
 A_GeometricAlgebra["Order"] := 2^A["Dimension"]
-A_GeometricAlgebra["Indices"] := Subsets[Join[Range[A["Signature"][[1]]], Range[-A["Signature"][[2]], -1]]]
 
+A_GeometricAlgebra["Indices"] /; A["Basis"] == "Standard" :=
+    Subsets[Join[Range[A["Signature"][[1]]], Range[-A["Signature"][[2]], -1]]]
 
 PackageExport["Multivector"]
 Multivector::usage = "Multivector[coords, ga] gives a multivector in GeometricAlgebra ga";
