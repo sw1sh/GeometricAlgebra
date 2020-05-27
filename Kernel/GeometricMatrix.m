@@ -143,26 +143,27 @@ MultivectorMatrix[v_Multivector] := Module[{
     w = RealMultivector[v];
     If[q == p + 1,
         reIndex = Catenate @ Position[A["Indices"], _List ? (FreeQ[#, -q] &), {1}];
-     re = Multivector[w["Coordinates"][[reIndex]], {p, p}];
-     im = ((re - w) ** Pseudoscalar[v]);
-     re = Normal[re];
-     im = im[ "Coordinates"][[reIndex]];
-     X = re + I im,
-     X = w["Coordinates"];
-     ];
+        re = Multivector[w["Coordinates"][[reIndex]], {p, p}];
+        im = ((re - w) ** Pseudoscalar[v]);
+        re = Normal[re];
+        im = im[ "Coordinates"][[reIndex]];
+        X = re + I im,
+
+        X = w["Coordinates"];
+    ];
     M = standardToNullMatrix[p];
-    Partition[M.X, 2^p]
+    Partition[M . X, 2 ^ p]
 ]
 
 
 PackageExport["MatrixMultivector"]
 
-Options[MatrixMultivector] = {"Reals" -> False, Method -> "Matrix"};
+Options[MatrixMultivector] = {"Reals" -> Automatic, Method -> "Matrix"};
 
 MatrixMultivector::unknownMethod = "Method should be one of {\"Multivector\", \"Matrix\"}";
 
 MatrixMultivector[mat_, OptionsPattern[MatrixMultivector]] := Module[{
-    n, isReal, G, At, u, B, sa
+    n, isReal, G, At, u, B, sa, M
 },
     n = Log2[Length[mat]];
     If[Not[IntegerQ[n]],
@@ -179,21 +180,21 @@ MatrixMultivector[mat_, OptionsPattern[MatrixMultivector]] := Module[{
          At = Apply[
              kroneckerProduct[##] &,
              Table[
-                 MultivectorArray[{Multivector[1, G], Multivector[<|{i} -> 1/2, {-i} -> 1/2|>, G]}, {-2}],
+                 MultivectorArray[{Multivector[1, G], G["Null", i]}, {-2}],
                  {i, 1, n}
              ]
          ];
          u = Apply[
              GeometricProduct,
              Table[
-                 Multivector[<|{i} -> 1/2, {-i} -> -(1/2)|>, G] ** Multivector[<|{i} -> 1/2, {-i} -> 1/2|>, G],
+                 G["Idempotent", i],
                  {i, 1, n}
              ]
          ];
          B = Apply[
              kroneckerProduct[##, "Direction" -> Right] &,
              Reverse @ Table[
-                 MultivectorArray[{Multivector[1, G], Multivector[<|{i} -> 1/2, {-i} -> -(1/2)|>, G]}],
+                 MultivectorArray[{Multivector[1, G], G["Null", - i]}],
                  {i, 1, n}
              ]
          ];
@@ -211,7 +212,11 @@ MatrixMultivector[mat_, OptionsPattern[MatrixMultivector]] := Module[{
          ((At ** u) ** (sa ** B))["Components"],
 
          "Matrix",
-         Multivector[Inverse[standardToNullMatrix[n]].Flatten[mat], G],
+         M = Inverse[standardToNullMatrix[n]];
+         If[isReal,
+            Multivector[M . Flatten[mat], G],
+            RealMultivector @ Multivector[Multivector[M . Flatten[mat], GeometricAlgebra[n, n]], G]
+         ],
 
          _,
          Message[MatrixMultivector::unknownMethod];
@@ -246,9 +251,7 @@ PackageScope["standardToNullMatrix"]
 standardToNullMatrix[n_Integer] := standardToNullMatrix[n] = Module[{
     m = 2^n, sa, s
 },
-    sa = ArrayReshape[
-        Array[Subscript[s, ##] &, ConstantArray[2, 2 n]], {m, m}
-    ];
+    sa = Array[s[##] &, {m, m}];
     Inverse[
         Coefficient[#, Flatten @ sa] & /@ Normal[MatrixMultivector[sa, "Reals" -> True, Method -> "Multivector"]]
     ]
