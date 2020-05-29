@@ -1,6 +1,20 @@
 Package["GeometricAlgebra`"]
 
 
+PackageExport["MultivectorFunction"]
+PackageExport["CanonicalGeometricAlgebra"]
+PackageExport["CanonicalGeometricIndices"]
+PackageExport["ConvertGeometricAlgebra"]
+PackageExport["CanonicalMultivector"]
+PackageExport["RealMultivector"]
+PackageExport["MultivectorMatrix"]
+PackageExport["MatrixMultivector"]
+
+PackageScope["kroneckerProduct"]
+PackageScope["nullToStandardMatrix"]
+PackageScope["spectralToStandardMatrix"]
+
+
 PackageScope["kroneckerProduct"]
 
 
@@ -24,11 +38,11 @@ kroneckerProduct[va_MultivectorArray, wa_MultivectorArray, OptionsPattern[kronec
         ]
     ]
 ]
+
 kroneckerProduct[va_MultivectorArray, OptionsPattern[kroneckerProduct]] := va
+
 kroneckerProduct[vas__MultivectorArray, opts : OptionsPattern[kroneckerProduct]] := Fold[kroneckerProduct[##, opts] &, {vas}]
 
-
-PackageExport["CanonicalGeometricAlgebra"]
 
 CanonicalGeometricAlgebra[G_GeometricAlgebra] := Module[{
     p, q, n, n1, n2, indexConversion, newIndex
@@ -51,8 +65,6 @@ CanonicalGeometricAlgebra[G_GeometricAlgebra] := Module[{
     GeometricAlgebra[{n1, n2}, "FormatIndex" -> newIndex]
 ]
 
-
-PackageExport["CanonicalGeometricIndices"]
 
 CanonicalGeometricIndices[G_GeometricAlgebra] := Module[{
     n1, n2, p, q, n, complexIndices, newIndex
@@ -83,8 +95,6 @@ CanonicalGeometricIndices[G_GeometricAlgebra] := Module[{
     ]
 
 
-PackageExport["ConvertGeometricAlgebra"]
-
 Options[ConvertGeometricAlgebra] = {"Reals" -> True};
 
 ConvertGeometricAlgebra[
@@ -112,8 +122,6 @@ ConvertGeometricAlgebra[
     ]
 
 
-PackageExport["CanonicalMultivector"]
-
 CanonicalMultivector[v_Multivector, opts : OptionsPattern[]] :=
     ConvertGeometricAlgebra[
         v,
@@ -122,15 +130,14 @@ CanonicalMultivector[v_Multivector, opts : OptionsPattern[]] :=
     ]
 
 
-PackageExport["RealMultivector"]
-
 RealMultivector[v_Multivector] := RealMultivector[v, v["GeometricAlgebra"]]
+
 RealMultivector[v_Multivector, G_GeometricAlgebra] :=
     Multivector[Re[v["Coordinates"]], v["GeometricAlgebra"]] +
-    Pseudoscalar[G] ** Multivector[Im[v["Coordinates"]], v["GeometricAlgebra"]]
+    G["Pseudoscalar"] ** Multivector[Im[v["Coordinates"]], v["GeometricAlgebra"]]
 
 
-PackageExport["MultivectorMatrix"]
+Options[MultivectorMatrix] = {"Basis" -> "Null"}
 
 MultivectorMatrix[v_Multivector, OptionsPattern[MultivectorMatrix]] := Module[{
     A, p, q, n, w, reIndex, re, im, X, M
@@ -157,9 +164,7 @@ MultivectorMatrix[v_Multivector, OptionsPattern[MultivectorMatrix]] := Module[{
 ]
 
 
-PackageExport["MatrixMultivector"]
-
-Options[MatrixMultivector] = {"Reals" -> Automatic, Method -> "Matrix"};
+Options[MatrixMultivector] = {"Reals" -> Automatic, "Basis" -> "Null", Method -> "Matrix"};
 
 MatrixMultivector::unknownMethod = "Method should be one of {\"Multivector\", \"Matrix\"}";
 
@@ -246,8 +251,6 @@ MatrixMultivector[mat_, G_GeometricAlgebra, opts: OptionsPattern[MatrixMultivect
 ]
 
 
-PackageExport["MultivectorFunction"]
-
 MultivectorFunction[f_, v_Multivector] := ConvertGeometricAlgebra[
     MatrixMultivector[
         MatrixFunction[f, MultivectorMatrix[v]], 
@@ -258,7 +261,7 @@ MultivectorFunction[f_, v_Multivector] := ConvertGeometricAlgebra[
 ]
 
 
-PackageScope["standardToNullMatrix"]
+(* Utility functions *)
 
 
 nullToStandardMatrix[n_Integer] := nullToStandardMatrix[n] = Module[{

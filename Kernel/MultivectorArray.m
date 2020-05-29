@@ -1,43 +1,53 @@
 Package["GeometricAlgebra`"]
 
-PackageExport["MultivectorArray"]
 
+PackageExport["MultivectorArray"]
 MultivectorArray::usage = "MultivectorArray[vs, shape] gives a multi dimensional array of multivectors with specified shape";
+
+PackageExport["ShapeContract"]
+ShapeContract::usage = "Contract MultivectorArray indices";
+
+
 Options[MultivectorArray] = {"Components" -> {}, "Shape" -> {}}
 
+
+$MultivectorArrayProperties = {
+    "Components",
+    "Shape",
+
+    "Rank"
+}
+
+
 MultivectorArray::badShape = "Specified shape `1` is not cmopatible with dimensions `2`";
+
 
 MultivectorArray[vs_, shape: {___Integer}] /; ArrayQ[vs, _, MatchQ[_Multivector]] := If[
     Dimensions[vs] == Abs[DeleteCases[shape, 0]],
     MultivectorArray["Components" -> vs, "Shape" -> shape],
     Message[MultivectorArray::badShape, shape, Dimensions[vs]]; $Failed
 ]
+
 MultivectorArray[vs_] /; ArrayQ[vs, _, MatchQ[_Multivector]] := MultivectorArray[vs, Dimensions[vs]]
 
 MultivectorArray[v_Multivector, shape_: {}] := MultivectorArray["Components" -> v, "Shape" -> {}]
 
+
 va_MultivectorArray[opt_String] /; KeyExistsQ[Options[va], opt] := Lookup[Options[va], opt]
+
 va_MultivectorArray["Rank"] := Length @ va["Shape"]
-
-mapComponents[f_, va_MultivectorArray] := MultivectorArray[
-    If[va["Rank"] == 0, f[va["Components"]], Map[f, va["Components"], {va["Rank"]}]],
-    va["Shape"]
-]
-
-expandDims[va_MultivectorArray, sign_Integer: 1, dim_Integer: -1] /; sign != 0 := With[{
-    shape = Insert[va["Shape"], Sign[sign], dim]
-},
-    MultivectorArray[If[va["Rank"] == 0, {va["Components"]}, ArrayReshape[va["Components"], Abs[shape]]], shape]
-]
 
 
 MultivectorArray /: f_[v_Multivector, va_MultivectorArray] := mapComponents[f[v, #] &, va]
+
 MultivectorArray /: f_[va_MultivectorArray, v_Multivector] := mapComponents[f[#, v] &, va]
 
 MultivectorArray /: f_[x_ ? NumericQ, va_MultivectorArray] := mapComponents[f[x, #] &, va]
+
 MultivectorArray /: f_[va_MultivectorArray, y_ ? NumericQ] := mapComponents[f[#, y] &, va]
 
-MultivectorArray /: (NonCommutativeMultiply | GeometricProduct)[va_MultivectorArray, vb_MultivectorArray] /; va["Rank"] > 0 && vb["Rank"] > 0 := With[{
+
+MultivectorArray /: GeometricProduct[va_MultivectorArray, vb_MultivectorArray] /; va["Rank"] > 0 && vb["Rank"] > 0 := With[{
     outer = Outer[GeometricProduct, va["Components"], vb["Components"]],
     shape = Join[va["Shape"], vb["Shape"]],
     shapeContraction = {va["Rank"], va["Rank"] + 1}
@@ -47,10 +57,16 @@ MultivectorArray /: (NonCommutativeMultiply | GeometricProduct)[va_MultivectorAr
         MultivectorArray[outer, shape]
     ]
 ]
-MultivectorArray /: (NonCommutativeMultiply | GeometricProduct)[va_MultivectorArray, vb_MultivectorArray] := GeometricProduct[expandDims[va, -1], expandDims[vb, 1, 1]]
+
+GeometricProduct[va_MultivectorArray, vb_MultivectorArray] := GeometricProduct[expandDims[va, -1], expandDims[vb, 1, 1]]
+
+
+GeometricProduct[vs__MultivectorArray] := Fold[GeometricProduct, {vs}]
+
 
 MultivectorArray /: f_Symbol[va_MultivectorArray, vb_MultivectorArray] /; MemberQ[Attributes[f], NumericFunction] && va["Shape"] == vb["Shape"] :=
     MultivectorArray[f[va["Components"], vb["Components"]], va["Shape"]]
+
 
 MultivectorArray /: Plus[vas__MultivectorArray] := Fold[Plus, {vas}]
 
@@ -58,9 +74,13 @@ MultivectorArray /: Plus[vas__MultivectorArray] := Fold[Plus, {vas}]
 (* Transpose *)
 
 transposeShape[shape_] := - shape
+
 transposeShape[shape_, n_Integer] := MapAt[Minus, shape, {n}]
+
 transposeShape[shape_List] /; Length[shape] > 1 := transposeShape[shape, 1 <-> 2]
+
 transposeShape[shape_List, levels_List] /; Length[shape] == Length[levels] := - shape[[levels]]
+
 transposeShape[shape_List, m_Integer <-> n_Integer] /; Length[shape] > 1 := MapAt[Minus, Permute[shape, Cycles[{{m, n}}]], {{m}, {n}}]
 
 
@@ -72,10 +92,10 @@ MultivectorArray /: Transpose[va_MultivectorArray, args___] :=
 
 
 unaryOps = Grade | Reverse | Involute | Conjugate | LeftDual | RightDual | Dual | MultivectorTransform;
+
 MultivectorArray /: (f: unaryOps)[va_MultivectorArray, args___] :=
     mapComponents[f[#, args] &, va]
 
-PackageExport["ShapeContract"]
 
 shapeContract[va_MultivectorArray] := With[{
     shapeContractions = SequencePosition[va["Shape"], {x_ ? Negative, y_ ? Positive} /; x == -y]
@@ -124,3 +144,15 @@ MultivectorArray /: MakeBoxes[va: MultivectorArray[opts: OptionsPattern[]], _] :
 ]
 
 
+(* Utility functions *)
+
+mapComponents[f_, va_MultivectorArray] := MultivectorArray[
+    If[va["Rank"] == 0, f[va["Components"]], Map[f, va["Components"], {va["Rank"]}]],
+    va["Shape"]
+]
+
+expandDims[va_MultivectorArray, sign_Integer: 1, dim_Integer: -1] /; sign != 0 := With[{
+    shape = Insert[va["Shape"], Sign[sign], dim]
+},
+    MultivectorArray[If[va["Rank"] == 0, {va["Components"]}, ArrayReshape[va["Components"], Abs[shape]]], shape]
+]
