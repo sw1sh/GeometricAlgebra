@@ -3,6 +3,7 @@ Package["GeometricAlgebra`"]
 
 PackageScope["kroneckerProduct"]
 
+
 Options[kroneckerProduct] = {"Direction" -> Left, "Flatten" -> True};
 
 kroneckerProduct[va_MultivectorArray, wa_MultivectorArray, OptionsPattern[kroneckerProduct]] := With[{
@@ -100,7 +101,7 @@ ConvertGeometricAlgebra[
     If[OptionValue["Reals"],
         Total @ Map[
             Apply[With[{c = canonicCoordinates[#2[[2]]] Conjugate[#2[[1]]]}, 
-                Multivector[<|#1 -> Re[c]|>, G] + Pseudoscalar[G] ** Multivector[<|#1 -> Im[c]|>, G]]
+                Multivector[<|#1 -> Re[c]|>, G] + G["Pseudoscalar"] ** Multivector[<|#1 -> Im[c]|>, G]]
             &], fromCanonicConversion
         ],
         Multivector[
@@ -131,7 +132,7 @@ RealMultivector[v_Multivector, G_GeometricAlgebra] :=
 
 PackageExport["MultivectorMatrix"]
 
-MultivectorMatrix[v_Multivector] := Module[{
+MultivectorMatrix[v_Multivector, OptionsPattern[MultivectorMatrix]] := Module[{
     A, p, q, n, w, reIndex, re, im, X, M
 },
     A = v["GeometricAlgebra"];
@@ -144,14 +145,14 @@ MultivectorMatrix[v_Multivector] := Module[{
     If[q == p + 1,
         reIndex = Catenate @ Position[A["Indices"], _List ? (FreeQ[#, -q] &), {1}];
         re = Multivector[w["Coordinates"][[reIndex]], {p, p}];
-        im = ((re - w) ** Pseudoscalar[v]);
+        im = ((re - w) ** A["Pseudoscalar"]);
         re = Normal[re];
         im = im[ "Coordinates"][[reIndex]];
         X = re + I im,
 
         X = w["Coordinates"];
     ];
-    M = standardToNullMatrix[p];
+    M = PseudoInverse[If[OptionValue["Basis"] == "Null", nullToStandardMatrix[p], spectralToStandardMatrix[p]]];
     Partition[M . X, 2 ^ p]
 ]
 
@@ -180,28 +181,29 @@ MatrixMultivector[mat_, OptionsPattern[MatrixMultivector]] := Module[{
          At = Apply[
              kroneckerProduct[##] &,
              Table[
-                 MultivectorArray[{Multivector[1, G], G["Null", i]}, {-2}],
+                 MultivectorArray[{Multivector[1, G], If[OptionValue["Basis"] == "Null", G["Null", i], Multivector[<|{i} -> 1|>, G]]}, {-2}],
                  {i, 1, n}
              ]
          ];
          u = Apply[
              GeometricProduct,
              Table[
-                 G["Idempotent", i],
+                 If[OptionValue["Basis"] == "Null", G["Idempotent", i], Multivector[<|{} -> 1 / 2, {-i} -> I / 2|>, G]],
                  {i, 1, n}
              ]
          ];
          B = Apply[
              kroneckerProduct[##, "Direction" -> Right] &,
              Reverse @ Table[
-                 MultivectorArray[{Multivector[1, G], G["Null", - i]}],
+                 MultivectorArray[{Multivector[1, G], If[OptionValue["Basis"] == "Null", G["Null", - i], Multivector[<|{i} -> 1|>, G]]}],
                  {i, 1, n}
              ]
          ];
          sa = MultivectorArray[
              Map[
                  Multivector[
-                     If[isReal, {#}, SparseArray[{1 -> Re[#], -1 -> Im[#]}, G["Order"]]], 
+                     {#}
+                     (*If[isReal, {#}, SparseArray[{1 -> Re[#], -1 -> Im[#]}, G["Order"]]]*),
                      G
                  ] &,
                  mat,
@@ -209,10 +211,10 @@ MatrixMultivector[mat_, OptionsPattern[MatrixMultivector]] := Module[{
              ],
              {2^n, -2^n}
          ];
-         ((At ** u) ** (sa ** B))["Components"],
+         If[isReal, RealMultivector, Identity][((At ** u) ** (sa ** B))["Components"]],
 
          "Matrix",
-         M = Inverse[standardToNullMatrix[n]];
+         M = If[OptionValue["Basis"] == "Null", nullToStandardMatrix[n], spectralToStandardMatrix[n]];
          If[isReal,
             Multivector[M . Flatten[mat], G],
             RealMultivector @ Multivector[Multivector[M . Flatten[mat], GeometricAlgebra[n, n]], G]
@@ -225,12 +227,22 @@ MatrixMultivector[mat_, OptionsPattern[MatrixMultivector]] := Module[{
 
 ]
 
-MatrixMultivector[mat_, G_GeometricAlgebra] := Module[{n},
+MatrixMultivector[mat_, G_GeometricAlgebra, opts: OptionsPattern[MatrixMultivector]] := Module[{
+    n, isReal
+},
     n = Log2[Length[mat]];
+    isReal = G["Dimension"] == 2 n;
     If[Not[IntegerQ[n]] || (G["Dimension"] != 2 n && G["Dimension"] != 2 n + 1),
         Return[$Failed]
     ];
-    ConvertGeometricAlgebra[MatrixMultivector[mat, "Reals" -> G["Dimension"] == 2 n], G]
+    ConvertGeometricAlgebra[
+        MatrixMultivector[mat,
+            "Reals" -> isReal,
+            Sequence @@ FilterRules[{opts}, Except["Reals"]]
+        ],
+        G,
+        "Reals" -> OptionValue["Reals"]
+    ]
 ]
 
 
@@ -248,11 +260,20 @@ MultivectorFunction[f_, v_Multivector] := ConvertGeometricAlgebra[
 
 PackageScope["standardToNullMatrix"]
 
-standardToNullMatrix[n_Integer] := standardToNullMatrix[n] = Module[{
+
+nullToStandardMatrix[n_Integer] := nullToStandardMatrix[n] = Module[{
     m = 2^n, sa, s
 },
     sa = Array[s[##] &, {m, m}];
-    Inverse[
-        Coefficient[#, Flatten @ sa] & /@ Normal[MatrixMultivector[sa, "Reals" -> True, Method -> "Multivector"]]
-    ]
+
+    Coefficient[#, Flatten @ sa] & /@ ComplexExpand @ Normal[MatrixMultivector[sa, "Reals" -> True, Method -> "Multivector"]]
+]
+
+
+spectralToStandardMatrix[n_Integer] := spectralToStandardMatrix[n] = Module[{
+    m = 2^n, sa, s
+},
+    sa = Array[s[##] &, {m, m}];
+
+    Coefficient[#, Flatten @ sa] & /@ ComplexExpand @ Normal[MatrixMultivector[sa, "Reals" -> True, "Basis" -> "Spectral", Method -> "Multivector"]]
 ]
