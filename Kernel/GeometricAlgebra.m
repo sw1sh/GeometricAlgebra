@@ -3,6 +3,8 @@ Package["GeometricAlgebra`"]
 
 PackageExport["GeometricAlgebra"]
 
+PackageScope["$GeometricAlgebraProperties"]
+
 
 GeometricAlgebra::usage = "GeometricAlgebra[p, q] gives an underlying algebra object for use with Multivector";
 
@@ -24,6 +26,7 @@ $GeometricAlgebraProperties = {
 
     "MultiplicationTable",
     "SignMatrix",
+    "PseudoscalarPower",
 
     "Zero",
     "Identity"
@@ -55,6 +58,12 @@ A_GeometricAlgebra["Metric"] :=
 A_GeometricAlgebra["Indices"] := Subsets[Join[Range[A["Signature"][[1]]], Range[-A["Signature"][[2]], -1]]]
 
 A_GeometricAlgebra["SignMatrix"] := A["SignMatrix"] = A["MultiplicationTable"][[All, All, 1]]
+
+
+A_GeometricAlgebra["PseudoscalarPower"] := Module[{p, q},
+    {p, q} = A["Signature"];
+    (- 1) ^ ((p - q) * (p - q - 1) / 2)
+]
 
 
 (* Boxes *)

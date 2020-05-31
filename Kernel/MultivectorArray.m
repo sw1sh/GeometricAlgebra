@@ -8,6 +8,9 @@ PackageExport["ShapeContract"]
 ShapeContract::usage = "Contract MultivectorArray indices";
 
 
+PackageScope["mapComponents"]
+
+
 Options[MultivectorArray] = {"Components" -> {}, "Shape" -> {}}
 
 
@@ -15,7 +18,10 @@ $MultivectorArrayProperties = {
     "Components",
     "Shape",
 
-    "Rank"
+    "Rank",
+    "GeometricAlgebra",
+
+    "Numeric"
 }
 
 
@@ -23,19 +29,31 @@ MultivectorArray::badShape = "Specified shape `1` is not cmopatible with dimensi
 
 
 MultivectorArray[vs_, shape: {___Integer}] /; ArrayQ[vs, _, MatchQ[_Multivector]] := If[
-    Dimensions[vs] == Abs[DeleteCases[shape, 0]],
+    DeleteCases[Dimensions[vs], 0] == Abs[DeleteCases[shape, 0]],
     MultivectorArray["Components" -> vs, "Shape" -> shape],
     Message[MultivectorArray::badShape, shape, Dimensions[vs]]; $Failed
 ]
 
-MultivectorArray[vs_] /; ArrayQ[vs, _, MatchQ[_Multivector]] := MultivectorArray[vs, Dimensions[vs]]
+MultivectorArray[vs_, shape_] /; ArrayQ[vs] :=
+    MultivectorArray[Map[Multivector[{Re[#], Im[#]}, {0, 1}] &, vs, {ArrayDepth[vs]}], shape]
+
+MultivectorArray[vs_] /; ArrayQ[vs] := With[{dim = Dimensions[vs] /. 0 -> Nothing}, MultivectorArray[vs, dim * (-1) ^ Range[0, Length[dim] - 1]]]
 
 MultivectorArray[v_Multivector, shape_: {}] := MultivectorArray["Components" -> v, "Shape" -> {}]
 
 
 va_MultivectorArray[opt_String] /; KeyExistsQ[Options[va], opt] := Lookup[Options[va], opt]
 
+
 va_MultivectorArray["Rank"] := Length @ va["Shape"]
+
+va_MultivectorArray[f_] := mapComponents[f, va]
+
+
+MultivectorArray /: Dimensions[va_MultivectorArray] := Abs @ va["Shape"]
+
+
+va_MultivectorArray["GeometricAlgebra"] := GeometricAlgebra[MapThread[Max, Flatten[Map[#["Signature"] &, va["Components"], {va["Rank"]}], 1]]]
 
 
 MultivectorArray /: f_[v_Multivector, va_MultivectorArray] := mapComponents[f[v, #] &, va]
@@ -45,6 +63,9 @@ MultivectorArray /: f_[va_MultivectorArray, v_Multivector] := mapComponents[f[#,
 MultivectorArray /: f_[x_ ? NumericQ, va_MultivectorArray] := mapComponents[f[x, #] &, va]
 
 MultivectorArray /: f_[va_MultivectorArray, y_ ? NumericQ] := mapComponents[f[#, y] &, va]
+
+
+va_MultivectorArray["Numeric"] := Map[With[{re = #["Scalar"], im = #["Pseudoscalar"]}, re + I * im] &, va["Components"], {va["Rank"]}]
 
 
 MultivectorArray /: GeometricProduct[va_MultivectorArray, vb_MultivectorArray] /; va["Rank"] > 0 && vb["Rank"] > 0 := With[{

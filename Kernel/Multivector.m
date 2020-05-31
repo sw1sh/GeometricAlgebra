@@ -61,6 +61,9 @@ $MultivectorProperties = {
     "Coordinates",
 
     "Coordinate",
+    "Association",
+    "Span",
+    "Flatten",
     "Scalar",
     "Pseudoscalar",
 
@@ -83,10 +86,10 @@ Multivector::truncCoord = "Coordinates are incompatible with `1`. Number of coor
 
 Multivector[coords_? VectorQ, opts: OptionsPattern[]] :=
     With[{A = GeometricAlgebra @ OptionValue["GeometricAlgebra"]},
-        If[Length@coords > A["Order"],
+        If[Length @ coords > A["Order"],
             Message[Multivector::truncCoord, A, A["Order"]]
         ];
-        Multivector[Multivector["Coordinates" -> SparseArray[coords, A["Order"]], "GeometricAlgebra" -> A], opts]
+        Multivector["Coordinates" -> SparseArray[coords, A["Order"]], "GeometricAlgebra" -> A]
     ]
 
 Multivector[assoc_Association, opts: OptionsPattern[]] :=
@@ -108,19 +111,59 @@ Multivector[] := Multivector[{}]
 
 v_Multivector[f_] := mapCoordinates[f, v]
 
+Multivector /: f_Symbol[v_Multivector] /; MemberQ[Attributes[f], NumericFunction] := v[f]
+
+
 Multivector /: v_Multivector[opt: Alternatives @@ Keys @ Options @ Multivector] := Lookup[Options[v], opt]
 
-Multivector /: v_Multivector[opt: Alternatives @@ Keys @ Options @ GeometricAlgebra] := v["GeometricAlgebra"][opt]
+Multivector /: v_Multivector[opt: Alternatives @@ Join[Keys @ Options @ GeometricAlgebra, $GeometricAlgebraProperties]] := v["GeometricAlgebra"][opt]
+
 
 Multivector /: Normal[v_Multivector] := Normal @ v["Coordinates"]
+
 
 v_Multivector["Coordinates", n_Integer] :=
     v["Coordinates"][[binomialSum[v["GeometricAlgebra"]["Dimension"], n - 1] + 1 ;; binomialSum[v["GeometricAlgebra"]["Dimension"], n]]]
 
+
 v_Multivector["Coordinate", n_Integer] := v["Coordinates"][[n]]
 
-v_Multivector["Norm"] :=
-    Sqrt @ Total[With[{s = # ^ 2}, Total[s["Coordinate", 0] + I s["Coordinates", -1]]] & /@ GradeList[v]]
+
+v_Multivector["Association"] := Association @ Map[Apply[v["Indices"][[First[#1]]] -> #2 &], Most @ ArrayRules[v["Coordinates"]]]
+
+
+v_Multivector["Span"] := MapIndexed[Multivector[SparseArray[#2 -> #1, v["GeometricAlgebra"]["Order"]], v["GeometricAlgebra"]] &, v["Coordinates"]]
+
+
+v_Multivector["Flatten"] := Inner[GeometricProduct, v["Coordinates"], v["MultivectorBasis"]]
+
+
+Multivector[opts: OptionsPattern[]] := With[{
+    A = GeometricAlgebra[OptionValue["GeometricAlgebra"]]
+},
+    Multivector[
+        SparseArray[OptionValue["Coordinates"], A["Order"]],
+        A
+    ] /; MissingQ[Lookup[{opts}, "GeometricAlgebra"]] || Length[OptionValue["Coordinates"]] != A["Order"]
+]
+
+
+(* Coersion *)
+
+Multivector[v_Multivector, A_GeometricAlgebra] /; v["GeometricAlgebra"] === A := v
+
+Multivector[v_Multivector, A_GeometricAlgebra] := Multivector[
+    SparseArray[
+        Map[Apply[With[{
+                pos = Position[A["Indices"], Extract[v["GeometricAlgebra"]["Indices"], #1]]
+            },
+                If[Length[pos] > 0, pos[[1]] -> #2, Nothing]
+            ] &],
+            Most @ ArrayRules @ v["Coordinates"]
+        ],
+        A["Order"]
+    ], "GeometricAlgebra" -> A
+]
 
 
 (* Addition *)
@@ -159,7 +202,7 @@ Multivector /: Times[x: Except[_Multivector], v_Multivector] := mapCoordinates[x
 v_Multivector["Scalar"] := v["Coordinate", 1]
 
 
-v_Multivector["Pseudoscalar"] := v["Coordinate", -1]
+v_Multivector["Pseudoscalar"] := If[v["Dimension"] > 0, v["Coordinate", -1], 0]
 
 
 A_GeometricAlgebra["Identity"] := identityMultivector[A]
@@ -196,6 +239,8 @@ GeometricProduct[v_Multivector, w_Multivector] := Module[{
 GeometricProduct[x_, y_] := x * y
 
 GeometricProduct[vs__Multivector] := Fold[GeometricProduct, {vs}]
+
+GeometricProduct[] := Multivector[{1}, {0, 0}]
 
 
 Multivector /: Times[vs__Multivector] := GeometricProduct[vs]
@@ -273,6 +318,7 @@ Squared[v_Multivector] := v ** Involute[v]
 
 v_Multivector["Squared"] = Squared[v]
 
+
 (* Inverse *)
 
 Multivector::noinv = "Can't inverse a multivector";
@@ -286,8 +332,6 @@ Multivector /: Inverse[v_Multivector] :=
 v_Multivector["Inverse"] = Inverse[v]
 
 Multivector /: Divide[v_, w_Multivector] := Multivector[v, w["GeometricAlgebra"]] ** Inverse[w]
-
-v_Multivector["Normalize"] := v / v["Norm"]
 
 
 (* Root *)
@@ -325,6 +369,13 @@ Grade[coords_List, k_Integer, opts : OptionsPattern[Multivector]] := With[{
 Grade[v_Multivector, "Even"] := Total[Grade[v, #] & /@ Range[0, v["GeometricAlgebra"]["Dimension"], 2]]
 
 Grade[v_Multivector, "Odd"] := Total[Grade[v, #] & /@ Range[1, v["GeometricAlgebra"]["Dimension"], 2]]
+
+
+v_Multivector["Norm"] :=
+    Sqrt @ Total[With[{s = # ^ 2}, Total[s["Coordinate", 0] + I s["Coordinates", -1]]] & /@ GradeList[v]]
+
+
+v_Multivector["Normalize"] := v / v["Norm"]
 
 
 (* Special multivectors *)
@@ -514,7 +565,7 @@ Multivector /: MakeBoxes[v: Multivector[opts: OptionsPattern[]], _] :=
                     Function[coord, Switch[coord,
                         1, InterpretationBox["", coord],
                         -1, InterpretationBox["-", coord],
-                        _, Parenthesize[coord, StandardForm, Times]
+                        _, If[Head[coord] === Multivector, RowBox[{"(", MakeBoxes[coord], ")"}], Parenthesize[coord, StandardForm, Times]]
                     ], HoldFirst] @@ holdCoord,
                     MakeBoxes @@ holdCoord
                 ], HoldRest]
