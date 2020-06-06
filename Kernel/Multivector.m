@@ -138,6 +138,9 @@ v_Multivector["Span"] := MapIndexed[Multivector[SparseArray[#2 -> #1, v["Geometr
 v_Multivector["Flatten"] := Inner[GeometricProduct, v["Coordinates"], v["MultivectorBasis"]]
 
 
+v_Multivector["Real"] := v[Re] + v["GeometricAlgebra"]["Pseudoscalar"] ** v[Im]
+
+
 Multivector[opts: OptionsPattern[]] := With[{
     A = GeometricAlgebra[OptionValue["GeometricAlgebra"]]
 },

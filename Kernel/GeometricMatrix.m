@@ -138,13 +138,13 @@ RealMultivector[v_Multivector, g_GeometricAlgebra] := With[{G = GeometricAlgebra
 ComplexMultivector[v_Multivector] := ComplexMultivector[v, v["GeometricAlgebra"]]
 
 ComplexMultivector[v_Multivector, G_GeometricAlgebra] := With[{g = GeometricAlgebra[G["Signature"] - {0, 1}]},
-    Multivector[v, g] + I Multivector[v * G["Pseudoscalar"], g]
+    Multivector[v, g] - I Multivector[v ** G["Pseudoscalar"], g]
 ]
 
 
 Options[MultivectorMatrix] = {"Basis" -> "Null"}
 
-MultivectorMatrix[v_Multivector, dim_Integer: 0, opts: OptionsPattern[MultivectorMatrix]] := Module[{
+MultivectorMatrix[v_Multivector, opts: OptionsPattern[MultivectorMatrix]] := Module[{
     A, p, q, reIndex, re, im, X, M
 },
     A = v["GeometricAlgebra"];
@@ -155,14 +155,15 @@ MultivectorMatrix[v_Multivector, dim_Integer: 0, opts: OptionsPattern[Multivecto
         ]
     ];
 
-    If[q == p + 1,
+    If[ q == p + 1,
         reIndex = Catenate @ Position[A["Indices"], _List ? (FreeQ[#, -q] &), {1}];
         re = v["Coordinates"][[reIndex]];
         im = - (v ** A["Pseudoscalar"])["Coordinates"][[reIndex]];
 
         X = MapThread[Multivector[{#1, #2}, {0, 1}] &, {re, im}],
 
-        X = Multivector[#, {0}] & /@ v["Coordinates"];
+        (* Else *)
+        X = Multivector[{#}, {0}] & /@ v["Coordinates"];
     ];
     M = PseudoInverse[If[OptionValue["Basis"] == "Null", nullToStandardMatrix[p], spectralToStandardMatrix[p]]];
     MultivectorArray[Partition[M . X, 2 ^ p], {2 ^ p, - 2 ^ p}]
@@ -176,7 +177,7 @@ MatrixMultivector::nonsq = "Not a square matrix";
 MatrixMultivector::non2pow = "Matrix dimension `1` is not a power of 2";
 
 MatrixMultivector[mat_MultivectorArray, opts: OptionsPattern[MatrixMultivector]] := Module[{
-    dim, n, g, G, At, u, B, sa, M, X
+    dim, n, g, G, m, A, At, u, B, Bt, sa, M
 },
     dim = Dimensions[mat];
     If[ Length[dim] != 2 || Not[Equal @@ dim],
@@ -192,17 +193,18 @@ MatrixMultivector[mat_MultivectorArray, opts: OptionsPattern[MatrixMultivector]]
     g = mat["GeometricAlgebra"];
     G = GeometricAlgebra[g["Signature"] + {n, n}];
     If[g["Dimension"] > 1,
+        m = Floor[g["Dimension"] / 2];
         Return @ MatrixMultivector[
             MultivectorArray[
-                ArrayReshape[
+                Flatten[
                     Map[
-                        MultivectorMatrix[#, opts]["Components"] &,
+                        MultivectorMatrix[#, Sequence @@ FilterRules[{opts}, Options[MultivectorMatrix]]]["Components"] &,
                         mat["Components"],
                         {mat["Rank"]}
                     ],
-                    {2 ^ n, 2 ^ n}
+                    {{1, 3}, {2, 4}}
                 ],
-                {2 ^ n, - 2 ^ n}
+                {2 ^ (n + m), - 2 ^ (n + m)}
             ],
             opts
         ]
@@ -238,6 +240,30 @@ MatrixMultivector[mat_MultivectorArray, opts: OptionsPattern[MatrixMultivector]]
          ];
          ((At ** u) ** (sa ** B))["Components"],
 
+         "MultivectorTranspose",
+         A = Apply[
+             kroneckerProduct[##] &,
+             Table[
+                 MultivectorArray[{Multivector[1, G], If[OptionValue["Basis"] == "Null", G["Null", i], Multivector[<|{i} -> 1|>, G]]}],
+                 {i, 1, n}
+             ]
+         ];
+         u = Apply[
+             GeometricProduct,
+             Table[
+                 If[OptionValue["Basis"] == "Null", G["Idempotent", i], Multivector[<|{} -> 1 / 2, {-i} -> I / 2|>, G]],
+                 {i, 1, n}
+             ]
+         ];
+         Bt = Apply[
+             kroneckerProduct[##, "Direction" -> Right] &,
+             Reverse @ Table[
+                 MultivectorArray[{Multivector[1, G], If[OptionValue["Basis"] == "Null", G["Null", - i], Multivector[<|{i} -> 1|>, G]]}, {-2}],
+                 {i, 1, n}
+             ]
+         ];
+         Total[(A ** u ** Bt)["Components"] mat["Numeric"], 2]["Real"],
+
          "Matrix",
          M = If[OptionValue["Basis"] == "Null", nullToStandardMatrix[n], spectralToStandardMatrix[n]];
          Map[
@@ -253,7 +279,11 @@ MatrixMultivector[mat_MultivectorArray, opts: OptionsPattern[MatrixMultivector]]
 ]
 
 MatrixMultivector[mat_MultivectorArray, G_GeometricAlgebra, opts: OptionsPattern[MatrixMultivector]] :=
-    ConvertGeometricAlgebra[MatrixMultivector[mat, opts], G]
+    Module[{v},
+        v = MatrixMultivector[mat, opts];
+        v = Multivector[v, GeometricAlgebra[v["Signature"] + {0, G["Dimension"] - v["Dimension"]}]];
+        ConvertGeometricAlgebra[v, G]
+    ]
 
 
 MultivectorFunction[f_, v_Multivector, opts: OptionsPattern[]] :=
@@ -276,16 +306,17 @@ nullToStandardMatrix[n_Integer] := nullToStandardMatrix[n] = Module[{
     sa = Array[s[##] &, {m, m}];
 
     Coefficient[#, Flatten @ sa] & /@ Normal[
-        Multivector[MatrixMultivector[MultivectorArray[sa], Method -> "Multivector"], GeometricAlgebra[n, n]][Map[ComplexExpand]]
+        Multivector[MatrixMultivector[MultivectorArray[sa], Method -> "MultivectorTranspose"], GeometricAlgebra[n, n]][Map[ComplexExpand]]
     ]
 ]
 
 
 spectralToStandardMatrix[n_Integer] := spectralToStandardMatrix[n] = Module[{
-    m = 2 ^ n, sa, mat, s
+    m = 2 ^ n, sa, s
 },
     sa = Array[s[##] &, {m, m}];
+
     Coefficient[#, Flatten @ sa] & /@ Normal[
-        Multivector[MatrixMultivector[MultivectorArray[sa], "Basis" -> "Spectral", Method -> "Multivector"], GeometricAlgebra[n, n]][Map[ComplexExpand]]
+        Multivector[MatrixMultivector[MultivectorArray[sa], "Basis" -> "Spectral", Method -> "MultivectorTranspose"], GeometricAlgebra[n, n]][Map[ComplexExpand]]
     ]
 ]
