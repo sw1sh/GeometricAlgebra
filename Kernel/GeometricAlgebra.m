@@ -38,8 +38,8 @@ GeometricAlgebra[p_Integer, q_Integer: 0, opts: OptionsPattern[GeometricAlgebra]
 
 GeometricAlgebra[{p_Integer, q___Integer}, opts: OptionsPattern[GeometricAlgebra]] := GeometricAlgebra[p, q, opts]
 
-GeometricAlgebra[A_GeometricAlgebra, opts: OptionsPattern[GeometricAlgebra]] :=
-    GeometricAlgebra @@ Normal @ Merge[Join[{opts}, Options[A], Options[GeometricAlgebra]], First]
+GeometricAlgebra[A_GeometricAlgebra, opts: OptionsPattern[]] :=
+    GeometricAlgebra @@ Normal @ Merge[Join[FilterRules[{opts}, Options[GeometricAlgebra]], Options[A]], First]
 
 GeometricAlgebra[] := OptionValue[Multivector, "GeometricAlgebra"] (* current default GeometricAlgebra *)
 

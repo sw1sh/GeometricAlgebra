@@ -35,7 +35,7 @@ MultivectorArray[vs_, shape: {___Integer}] /; ArrayQ[vs, _, MatchQ[_Multivector]
 ]
 
 MultivectorArray[vs_, shape_] /; ArrayQ[vs] :=
-    MultivectorArray[Map[Multivector[{Re[#], Im[#]}, {0, 1}] &, vs, {ArrayDepth[vs]}], shape]
+    MultivectorArray[Map[Multivector[{#}, {0}] &, vs, {ArrayDepth[vs]}], shape]
 
 MultivectorArray[vs_] /; ArrayQ[vs] := With[{dim = Dimensions[vs] /. 0 -> Nothing}, MultivectorArray[vs, dim * (-1) ^ Range[0, Length[dim] - 1]]]
 
@@ -79,7 +79,7 @@ MultivectorArray /: GeometricProduct[va_MultivectorArray, vb_MultivectorArray] /
     ]
 ]
 
-GeometricProduct[va_MultivectorArray, vb_MultivectorArray] := GeometricProduct[expandDims[va, -1], expandDims[vb, 1, 1]]
+GeometricProduct[va_MultivectorArray, vb_MultivectorArray] := GeometricProduct[expandDims[va, -1, 1], expandDims[vb, 1, 1]]
 
 
 GeometricProduct[vs__MultivectorArray] := Fold[GeometricProduct, {vs}]
@@ -147,7 +147,7 @@ MultivectorArray /: MakeBoxes[va: MultivectorArray[opts: OptionsPattern[]], _] :
 },
     dims = Abs @ shape;
     size = Times @@ dims;
-    components = First @ Map[MakeBoxes, Lookup[List @@ RuleDelayed @@@ Hold[opts], "Components", None, Defer], {va["Rank"] + 1}];
+    components = First @ Map[MakeBoxes, Lookup[List @@ RuleDelayed @@@ Hold[opts], "Components", None, Hold], {va["Rank"] + 1}];
     boxes = If[va["Rank"] > 0, Flatten @ components, {components}];
     display = If[shape === {}, Slot[1], shapeGridBoxes[ArrayReshape[Range[size], dims], shape]];
     interpret = RowBox[{"MultivectorArray", "[",

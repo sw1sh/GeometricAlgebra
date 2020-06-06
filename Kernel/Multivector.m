@@ -214,7 +214,7 @@ A_GeometricAlgebra["Identity"] := identityMultivector[A]
 (* Geometric Product *)
 
 A_GeometricAlgebra["MultiplicationTable"] := A["MultiplicationTable"] =
-    Outer[multiplyIndices[#1, #2, A["Metric"]]&, A["Indices"], A["Indices"], 1]
+    Outer[multiplyIndices[#1, #2, A["Metric"]] &, A["Indices"], A["Indices"], 1]
 
 
 GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric product of multivectors v and w";
@@ -233,7 +233,7 @@ GeometricProduct[v_Multivector, w_Multivector] := Module[{
         Association @ Activate @ Normal @ reduceFunctions @ GroupBy[
             Flatten[MapIndexed[{#1, Extract[coords, #2]} &, mt[[All, All, 2]], {2}], 1],
             First,
-            Total@#[[All, 2]]&
+            Total @ #[[All, 2]]&
         ],
         "GeometricAlgebra" -> A
     ]
@@ -260,7 +260,7 @@ Unprotect[NonCommutativeMultiply]
 
 x_ ** (y_? NumericQ) := x y
 
-NonCommutativeMultiply[vs__] := GeometricProduct[vs]
+NonCommutativeMultiply[vs__] := Fold[GeometricProduct, {vs}]
 
 Protect[NonCommutativeMultiply]
 
@@ -374,8 +374,8 @@ Grade[v_Multivector, "Even"] := Total[Grade[v, #] & /@ Range[0, v["GeometricAlge
 Grade[v_Multivector, "Odd"] := Total[Grade[v, #] & /@ Range[1, v["GeometricAlgebra"]["Dimension"], 2]]
 
 
-v_Multivector["Norm"] :=
-    Sqrt @ Total[With[{s = # ^ 2}, Total[s["Coordinate", 0] + I s["Coordinates", -1]]] & /@ GradeList[v]]
+v_Multivector["Norm"] := Sqrt[v ^ 2]
+    (*Sqrt @ Total[With[{s = # ^ 2}, Total[s["Coordinate", 0] + I s["Coordinates", -1]]] & /@ GradeList[v]]*)
 
 
 v_Multivector["Normalize"] := v / v["Norm"]
@@ -460,10 +460,10 @@ reduceFunctions[expr_] := Activate @ FixedPoint[ReplaceRepeated[#, {
 }] &, expr]
 
 
-mapCoordinates[f_, v_Multivector] := Multivector[reduceFunctions[f[v["Coordinates"]]], "GeometricAlgebra" -> v["GeometricAlgebra"]]
+mapCoordinates[f_, v_Multivector] := Multivector[reduceFunctions[f[v["Coordinates"]]], v["GeometricAlgebra"]]
 
 
-coordinateTimes[f: Function[x_], Function[y_]] :=  reduceFunctions[Function[f[y]]]
+coordinateTimes[f: Function[x_], Function[y_]] := reduceFunctions[Function[f[y]]]
 
 coordinateTimes[f_Function, y_] := f[y]
 
@@ -484,13 +484,13 @@ solveCoordinates[f_Function, A_GeometricAlgebra] := Module[{w, sol},
 ]
 
 
-orderIndexWithSign[index_List, n_Integer] := With[{order = OrderingBy[index, Mod[#, n + 1] &]}, {index[[order]], Signature@order}]
+orderIndexWithSign[index_List, n_Integer] := With[{order = OrderingBy[index, Mod[#, n + 1] &]}, {index[[order]], Signature @ order}]
 
 
 multiplyIndices::badIndex = "Index `1` is incompatible with metric `2`";
 
 checkIndex[i_Integer, m_List] := 
-    If[Not[i != 0 && -Length[m] <= i <= Length[m]],
+    If[Not[i != 0 && - Length[m] <= i <= Length[m]],
         Message[multiplyIndices::badIndex, i, m];
         $Failed
     ]
@@ -498,10 +498,10 @@ checkIndex[i_Integer, m_List] :=
 multiplyIndices[i_List, j_List, m_List] :=
     Module[{index = Join[i, j], newIndex, orderedIndex, sign, squares},
         If[AnyTrue[index, FailureQ[checkIndex[#, m]] &], Return[$Failed]];
-        {orderedIndex, sign} = orderIndexWithSign[index, Length@m];
-        {newIndex, squares} = Reap@SequenceReplace[orderedIndex, {x_ ,x_} :> (Sow[x]; Nothing)];
-        If[Length@squares > 0,
-            sign = sign Times@@m[[squares[[1]]]]
+        {orderedIndex, sign} = orderIndexWithSign[index, Length @ m];
+        {newIndex, squares} = Reap @ SequenceReplace[orderedIndex, {x_ ,x_} :> (Sow[x]; Nothing)];
+        If[ Length[squares] > 0,
+            sign = sign Times @@ m[[squares[[1]]]]
         ];
         {sign ,newIndex}
     ]
@@ -532,6 +532,11 @@ geometricIndexBoxes[A_GeometricAlgebra] := geometricIndexBoxes[A, A["Indices"]]
 geometricIndexBoxes[] := geometricIndexBoxes[Lookup[Options[Multivector], "GeometricAlgebra"]]
 
 
+SetAttributes[holdSparseArray, {HoldAll}];
+
+holdSparseArray[a : SparseArray[{}, ___]] := a
+holdSparseArray[SparseArray[{xs__}, opts___]] := SparseArray[List @@ MapAt[Hold, Hold[xs], {All, 2}], opts]
+
 Multivector /: MakeBoxes[v: Multivector[opts: OptionsPattern[]], _] :=
     Module[{
         A = OptionValue[Multivector, {opts}, "GeometricAlgebra"],
@@ -546,12 +551,12 @@ Multivector /: MakeBoxes[v: Multivector[opts: OptionsPattern[]], _] :=
     },
     holdCoords = Lookup[List @@ RuleDelayed @@@ Hold[opts], "Coordinates", None, Hold];
     coords =  Which[
-        MatchQ[holdCoords, Hold[SparseArray[Automatic, ___]]],
+        MatchQ[holdCoords, Hold[SparseArray[Automatic, ___]]], (* don't hold elements of a SparseArray object *)
         Map[Hold, ReleaseHold @ holdCoords],
-        MatchQ[holdCoords, Hold[SparseArray[___]]],
-        First @ MapAt[Hold, holdCoords, {1, 1, All, 2}],
+        MatchQ[holdCoords, Hold[SparseArray[___]]], (* hold each element of a SparseArray constructor *)
+        First[holdSparseArray /@ holdCoords],
         True,
-        First @ MapAt[Hold, holdCoords, {1, All}]
+        First @ MapAt[Hold, holdCoords, {1, All}] (* hold elements of a List *)
     ];
     rules = Cases[ArrayRules[coords], ({i_Integer} -> c_) /; c =!= Hold[0] :> {i, c}];
     optBoxes = ToBoxes /@ FilterRules[{opts}, Except["Coordinates"]];
@@ -566,7 +571,7 @@ Multivector /: MakeBoxes[v: Multivector[opts: OptionsPattern[]], _] :=
             Apply[
                 Function[{index, holdCoord}, If[ index > 1,
                     Function[coord, Switch[coord,
-                        1, InterpretationBox["", coord],
+                        1, InterpretationBox["\[InvisibleSpace]", coord],
                         -1, InterpretationBox["-", coord],
                         _, If[Head[coord] === Multivector, RowBox[{"(", MakeBoxes[coord], ")"}], Parenthesize[coord, StandardForm, Times]]
                     ], HoldFirst] @@ holdCoord,
