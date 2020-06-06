@@ -10,6 +10,7 @@ PackageExport["RealMultivector"]
 PackageExport["ComplexMultivector"]
 PackageExport["MultivectorMatrix"]
 PackageExport["MatrixMultivector"]
+PackageExport["MultivectorBlocks"]
 
 PackageScope["kroneckerProduct"]
 PackageScope["nullToStandardMatrix"]
@@ -149,7 +150,7 @@ MultivectorMatrix[v_Multivector, opts: OptionsPattern[MultivectorMatrix]] := Mod
 },
     A = v["GeometricAlgebra"];
     {p, q} = A["Signature"];
-    If[p != q && q != p + 1,
+    If[ p != q && q != p + 1,
         Return[
             MultivectorMatrix[CanonicalMultivector[v, FilterRules[{opts}, Options[CanonicalMultivector]]], opts]
         ]
@@ -168,6 +169,55 @@ MultivectorMatrix[v_Multivector, opts: OptionsPattern[MultivectorMatrix]] := Mod
     M = PseudoInverse[If[OptionValue["Basis"] == "Null", nullToStandardMatrix[p], spectralToStandardMatrix[p]]];
     MultivectorArray[Partition[M . X, 2 ^ p], {2 ^ p, - 2 ^ p}]
 ]
+
+
+Options[MultivectorBlocks] = {"Basis" -> "Null"}
+
+
+MultivectorBlocks[v_Multivector, opts: OptionsPattern[MultivectorMatrix]] := Module[{
+    A, G, n, p, q, reIndex, re, im, X, basis, F, B
+},
+    {p, q} = v["Signature"];
+    If[ p != q && q != p + 1,
+        Return[
+            MultivectorBlocks[CanonicalMultivector[v, FilterRules[{opts}, Options[CanonicalMultivector]]], opts]
+        ]
+    ];
+    A = v["GeometricAlgebra"];
+    G = GeometricAlgebra[{p - 1, p - 1}];
+    n = Floor[v["Dimension"] / 2];
+    If[ q == p + 1,
+        reIndex = Catenate @ Position[v["Indices"], _List ? (FreeQ[#, -q] &), {1}];
+        re = v["Coordinates"][[reIndex]];
+        im = - (v ** A["Pseudoscalar"])["Coordinates"][[reIndex]];
+        X = MapThread[#1 + I #2 &, {re, im}],
+
+        (* Else *)
+        X = v["Coordinates"]
+     ];
+    If[ n > 0,
+        basis = If[OptionValue["Basis"] == "Null", nullToStandardMatrix, spectralToStandardMatrix];
+        F = Inverse @ basis[n];
+        B = basis[n - 1];
+        BlockMap[
+            If[q > p, RealMultivector, Identity] @ Multivector[B . Flatten[#, 1] . X, G] &,
+            Partition[F, 2 ^ n],
+            {2 ^ (n - 1), 2 ^ (n - 1)}
+        ],
+
+        {{If[q > p, ComplexMultivector, Identity] @ v}}
+    ]
+]
+
+MultivectorBlocks[v_Multivector, n_Integer ? NonNegative, opts: OptionsPattern[MultivectorMatrix]] :=
+    With[{
+        blocks = MultivectorBlocks[v, opts]
+    },
+        If[ n > 0,
+            Flatten[Map[MultivectorBlocks[#, n - 1, opts] &, blocks, {2}], {{1, 3}, {2, 4}}],
+            blocks
+        ]
+    ]
 
 
 Options[MatrixMultivector] = {"Basis" -> "Null", Method -> "Matrix"};
