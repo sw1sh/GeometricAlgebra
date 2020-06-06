@@ -324,13 +324,7 @@ v_Multivector["Squared"] = Squared[v]
 
 (* Inverse *)
 
-Multivector::noinv = "Can't inverse a multivector";
-
-Multivector /: Inverse[v_Multivector] :=
-    Module[{A = v["GeometricAlgebra"], coords},
-        coords = solveCoordinates[v ** # - A["Identity"] &, A];
-        v[coords &] /; Not[FailureQ[coords]] || Message[Multivector::noinv]
-    ]
+Multivector /: Inverse[v_Multivector] := MultivectorFunction[Inverse, v]
 
 v_Multivector["Inverse"] = Inverse[v]
 
@@ -339,11 +333,7 @@ Multivector /: Divide[v_, w_Multivector] := Multivector[v, w["GeometricAlgebra"]
 
 (* Root *)
 
-Multivector /: Root[v_Multivector, n_Integer] :=
-    Module[{A = v["GeometricAlgebra"], coords},
-        coords = solveCoordinates[# ^ n - v &, A];
-        v[coords &] /; Not[FailureQ[coords]]
-    ]
+Multivector /: Root[v_Multivector, n_Integer] := MultivectorFunction[MatrixPower[#, 1 / n] &, v]
 
 Multivector /: Power[v_Multivector, p_Rational] := With[{n = Numerator[p], d = Denominator[p]}, Root[v ^ n, d]]
 

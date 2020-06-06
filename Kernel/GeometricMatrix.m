@@ -339,12 +339,13 @@ MatrixMultivector[mat_MultivectorArray, G_GeometricAlgebra, opts: OptionsPattern
 MultivectorFunction[f_, v_Multivector, opts: OptionsPattern[]] :=
     MatrixMultivector[
         MultivectorArray[
-            MatrixFunction[f,
-                MultivectorMatrix[v, Sequence @@ FilterRules[{opts}, Options[MultivectorMatrix]]]["Numeric"]
-            ]
-        ],
+            f @ MultivectorMatrix[v, Sequence @@ FilterRules[{opts}, Options[MultivectorMatrix]]]["Numeric"]
+        ][If[OddQ[v["Dimension"]], RealMultivector, Identity]],
         Sequence @@ FilterRules[{opts}, Options[MatrixMultivector]]
     ]
+
+MultivectorFunction[f_Symbol, v_Multivector, opts: OptionsPattern[]] /; MemberQ[Attributes[f], NumericFunction] :=
+    MultivectorFunction[MatrixFunction[f, #] &, v, opts]
 
 
 (* Utility functions *)
