@@ -4,6 +4,12 @@ Package["GeometricAlgebra`"]
 PackageExport["Multivector"]
 Multivector::usage = "Multivector[coords, ga] gives a multivector in GeometricAlgebra ga";
 
+PackageExport["NumberMultivector"]
+NumberMultivector::usage = "NumberMultivector[x, ga] gives a multivector corresponding to a complex number x in geometric algebra ga";
+
+PackageExport["MultivectorNumber"]
+MultivectorNumber::usage = "MultivectorNumber[v] gives a complex number based on scalar and pseudoscalar parts of multivector";
+
 PackageExport["GeometricProduct"]
 GeometricProduct::usage = "GeometricProduct[vs__] computes geometric product of multivectors";
 
@@ -48,6 +54,7 @@ Squared::usage = "Squared[v] gives v ** Involute[v] for multivector v";
 PackageScope["zeroMultivector"]
 PackageScope["identityMultivector"]
 PackageScope["geometricIndexBoxes"]
+PackageScope["multiplyIndices"]
 
 
 Options[Multivector] = {
@@ -66,6 +73,8 @@ $MultivectorProperties = {
     "Flatten",
     "Scalar",
     "Pseudoscalar",
+    "Real",
+    "ComplexCoordinates",
 
     "Reverse",
     "Involute",
@@ -84,7 +93,7 @@ $MultivectorProperties = {
 
 Multivector::truncCoord = "Coordinates are incompatible with `1`. Number of coordinates should be less than `2`. Truncating excessive coordinates.";
 
-Multivector[coords_? VectorQ, opts: OptionsPattern[]] :=
+Multivector[coords_ ? VectorQ, opts: OptionsPattern[]] :=
     With[{A = GeometricAlgebra @ OptionValue["GeometricAlgebra"]},
         If[Length @ coords > A["Order"],
             Message[Multivector::truncCoord, A, A["Order"]]
@@ -95,7 +104,25 @@ Multivector[coords_? VectorQ, opts: OptionsPattern[]] :=
 Multivector[assoc_Association, opts: OptionsPattern[]] :=
     Multivector[Lookup[assoc, GeometricAlgebra[OptionValue["GeometricAlgebra"]]["Indices"], 0], opts]
 
-Multivector[x_? NumericQ, opts: OptionsPattern[]] := Multivector[{x}, opts]
+
+NumberMultivector[x_, A_GeometricAlgebra] :=
+    Multivector[SparseArray[{1 -> Re[x], -1 -> If[A["PseudoscalarSquare"] == 1, I, 1] Im[x]}, A["Order"]], A]
+
+NumberMultivector[v_Multivector, A_GeometricAlgebra] :=
+    Multivector[SparseArray[{1 -> v["Scalar"], -1 -> If[v["PseudoscalarSquare"] != A["PseudoscalarSquare"], I, 1] v["Pseudoscalar"]}, A["Order"]], A]
+
+NumberMultivector[x_] := NumberMultivector[x, GeometricAlgebra[0, 1]]
+
+
+MultivectorNumber[v_Multivector, A_GeometricAlgebra] :=
+    Multivector[SparseArray[{1 -> v["Scalar"], -1 -> v["Pseudoscalar"]}, A["Order"]], A]
+
+MultivectorNumber[v_Multivector] := MultivectorNumber[v, GeometricAlgebra @ If[v["PseudoscalarSquare"] == 1, {1, 0}, {0, 1}]]
+
+MultivectorNumber[x_] := x
+
+
+Multivector[x_ ? NumericQ, opts: OptionsPattern[]] := NumberMultivector[x, OptionValue["GeometricAlgebra"]]
 
 Multivector[v_Multivector, opts: OptionsPattern[]] := Multivector[mergeOptions[{{opts}, Options[v]}]]
 
@@ -135,10 +162,30 @@ v_Multivector["Association"] := Association @ Map[Apply[v["Indices"][[First[#1]]
 v_Multivector["Span"] := MapIndexed[Multivector[SparseArray[#2 -> #1, v["GeometricAlgebra"]["Order"]], v["GeometricAlgebra"]] &, v["Coordinates"]]
 
 
-v_Multivector["Flatten"] := Inner[GeometricProduct, v["Coordinates"], v["MultivectorBasis"]]
+v_Multivector["Flatten"] := Inner[GeometricProduct, v["Coordinates"], v["Basis"]]
 
 
 v_Multivector["Real"] := v[Re] + v["GeometricAlgebra"]["Pseudoscalar"] ** v[Im]
+
+
+v_Multivector["Numeric"] := v["Scalar"] + If[v["PseudoscalarSquare"] == 1, 1, I] v["Pseudoscalar"]
+
+
+v_Multivector["ComplexCoordinates"] := Module[{
+    A, re, im
+},
+    A = v["GeometricAlgebra"];
+
+    If[ OddQ[A["Dimension"]],
+        re = Lookup[v["Association"], A["ReIndices"], 0];
+        im = Lookup[(A["Pseudoscalar"] ** v)["Association"], A["ReIndices"], 0];
+
+        re + A["PseudoscalarSquare"] A["Pseudoscalar"] ** im,
+
+        (* Else *)
+        v["Coordinates"]
+    ]
+]
 
 
 Multivector[opts: OptionsPattern[]] := With[{

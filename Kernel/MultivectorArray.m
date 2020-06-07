@@ -65,7 +65,7 @@ MultivectorArray /: f_[x_ ? NumericQ, va_MultivectorArray] := mapComponents[f[x,
 MultivectorArray /: f_[va_MultivectorArray, y_ ? NumericQ] := mapComponents[f[#, y] &, va]
 
 
-va_MultivectorArray["Numeric"] := Map[With[{re = #["Scalar"], im = #["Pseudoscalar"]}, re + I * im] &, va["Components"], {va["Rank"]}]
+va_MultivectorArray["Numeric"] := Map[MultivectorNumber, va["Components"], {va["Rank"]}]
 
 
 MultivectorArray /: GeometricProduct[va_MultivectorArray, vb_MultivectorArray] /; va["Rank"] > 0 && vb["Rank"] > 0 := With[{

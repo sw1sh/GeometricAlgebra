@@ -4,6 +4,8 @@ Package["GeometricAlgebra`"]
 PackageExport["GeometricAlgebra"]
 
 PackageScope["$GeometricAlgebraProperties"]
+PackageScope["lowerGeometricAlgebra"]
+PackageScope["higherGeometricAlgebra"]
 
 
 GeometricAlgebra::usage = "GeometricAlgebra[p, q] gives an underlying algebra object for use with Multivector";
@@ -21,12 +23,16 @@ $GeometricAlgebraProperties = {
 
     "Metric",
     "Indices",
+    "ReIndices",
+    "ImIndexSigns",
 
-    "MultivectorBasis",
+    "Basis",
+    "PseudoBasis",
 
     "MultiplicationTable",
     "SignMatrix",
-    "PseudoscalarPower",
+    "PseudoscalarSquare",
+    "ComplexAlgebra",
 
     "Zero",
     "Identity"
@@ -60,10 +66,31 @@ A_GeometricAlgebra["Indices"] := Subsets[Join[Range[A["Signature"][[1]]], Range[
 A_GeometricAlgebra["SignMatrix"] := A["SignMatrix"] = A["MultiplicationTable"][[All, All, 1]]
 
 
-A_GeometricAlgebra["PseudoscalarPower"] := Module[{p, q},
+A_GeometricAlgebra["PseudoscalarSquare"] := Module[{p, q},
     {p, q} = A["Signature"];
     (- 1) ^ ((p - q) * (p - q - 1) / 2)
 ]
+
+
+A_GeometricAlgebra["ComplexAlgebra"] := With[{n = Floor[A["Dimension"] / 2]},
+    If[ OddQ[A["Dimension"]],
+        If[ A["PseudoscalarSquare"] == 1,
+            GeometricAlgebra[n + 1, n],
+            GeometricAlgebra[n, n + 1]
+        ],
+        GeometricAlgebra[n, n]
+    ]
+]
+
+
+middleIndex[A_GeometricAlgebra] := Module[{p, q},
+    {p, q} = A["Signature"];
+    Join[Range[p], Range[-q, -1]][[Ceiling[(p + q) / 2]]]
+]
+
+A_GeometricAlgebra["ReIndices"] := Cases[A["Indices"], _List ? (FreeQ[#, middleIndex[A]] &)]
+
+A_GeometricAlgebra["ImIndexSigns"] := With[{i = Last @ A["Indices"]}, Rule @@ Reverse @ multiplyIndices[i, #, A["Metric"]] & /@ A["ReIndices"]]
 
 
 (* Boxes *)
@@ -77,3 +104,17 @@ GeometricAlgebra /: MakeBoxes[A_GeometricAlgebra, StandardForm] := With[{
 
 
 (* Utility functions *)
+
+lowerGeometricAlgebra[G_GeometricAlgebra] := Module[{
+    p, q
+},
+    {p, q} = G["Signature"];
+    GeometricAlgebra @ If[p >= q, {Max[p - 1, 0], q}, {p, q - 1}]
+]
+
+higherGeometricAlgebra[G_GeometricAlgebra] := Module[{
+    p, q
+},
+    {p, q} = G["Signature"];
+    GeometricAlgebra @ If[p > q, {p, q + 1}, {p + 1, q}]
+]

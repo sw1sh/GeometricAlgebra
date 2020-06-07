@@ -33,7 +33,9 @@ MultivectorBasis[args__] := MultivectorBasis[GeometricAlgebra[], args]
 MultivectorBasis[] := MultivectorBasis[All]
 
 
-A_GeometricAlgebra["MultivectorBasis"] := MultivectorBasis[A]
+A_GeometricAlgebra["Basis"] := MultivectorBasis[A]
+
+A_GeometricAlgebra["PseudoBasis"] := A["Pseudoscalar"] ** # & /@ MultivectorBasis[A]
 
 
 (* Utility functions *)
