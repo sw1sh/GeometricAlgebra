@@ -103,17 +103,18 @@ ConvertGeometricAlgebra[
     v_Multivector,
     G_GeometricAlgebra,
     OptionsPattern[ConvertGeometricAlgebra]] := Module[{
-        toCanonicConversion, fromCanonicConversion, canonicCoordinates
+        toCanonicConversion, fromCanonicConversion, canonicCoordinates, i
 },
     toCanonicConversion = CanonicalGeometricIndices[v["GeometricAlgebra"]];
     fromCanonicConversion = CanonicalGeometricIndices[G];
     canonicCoordinates = Association @ MapThread[#2[[2]] -> #1 #2[[1]] &,
         {v["Coordinates"], toCanonicConversion[[All, 2]]}
     ];
+    i = OptionValue["Pseudoscalar"];
 
     Total @ Map[
         Apply[With[{c = canonicCoordinates[#2[[2]]] Conjugate[#2[[1]]]},
-            Multivector[<|#1 -> Re[c] + Im[c] OptionValue["Pseudoscalar"]|>, G]
+            Multivector[<|#1 -> If[i != I, Re[c] + Im[c] i, c]|>, G]
         ]
         &], fromCanonicConversion
     ]
@@ -312,23 +313,26 @@ MatrixMultivector[mat_MultivectorArray, G_GeometricAlgebra, opts: OptionsPattern
 MultivectorFunction[f_, v_Multivector, opts: OptionsPattern[]] := Module[{X, g, re, im, a, b, Y, w},
     X = MultivectorMatrix[v, Sequence @@ FilterRules[{opts}, Options[MultivectorMatrix]]]["Components"];
     g = v["ComplexAlgebra"];
-    If[g["PseudoscalarSquare"] == -1, X = Map[NumberMultivector[#["Numeric"], g] &, X, {2}]];
+
     re = Map[#["Scalar"] &, X, {2}];
     im = Map[#["Pseudoscalar"] &, X, {2}];
+
     If[ v["PseudoscalarSquare"] == 1,
+        (* hyperbolic (split-complex) case *)
         a = f[re + im];
         b = f[re - im];
         Y = MapThread[Multivector[{##}, GeometricAlgebra[1, 0]] &, {a + b, a - b} / 2, 2],
 
-        Y = Map[NumberMultivector, f[re + I im], {2}]
+        (* complex case *)
+        a = f[re + I im];
+        b = f[re - I im];
+        Y = MapThread[Multivector[{#1, - I #2}, GeometricAlgebra[0, 1]] &, {a + b, a - b} / 2, 2]
+        (*Y = Map[NumberMultivector, f[Map[#["Numeric"] &, X, {2}]], {2}]*)
     ];
     w = MatrixMultivector[
         MultivectorArray[Y],
         g,
         Sequence @@ FilterRules[{opts}, Options[MatrixMultivector]]
-    ];
-    If[ v["PseudoscalarSquare"] == - 1,
-        w = fromRealCanonicalMultivector[w, v["GeometricAlgebra"]]
     ];
     ConvertGeometricAlgebra[w, v["GeometricAlgebra"]]
 ]
