@@ -329,7 +329,6 @@ MultivectorFunction[f_, v_Multivector, opts: OptionsPattern[]] := Module[{X, g, 
         a = f[re + I im];
         b = f[re - I im];
         Y = MapThread[Multivector[{#1, - I #2}, GeometricAlgebra[0, 1]] &, {a + b, a - b} / 2, 2]
-        (*Y = Map[NumberMultivector, f[Map[#["Numeric"] &, X, {2}]], {2}]*)
     ];
     w = MatrixMultivector[
         MultivectorArray[Y],

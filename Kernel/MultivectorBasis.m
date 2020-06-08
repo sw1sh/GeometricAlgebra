@@ -6,6 +6,7 @@ PackageExport["MultivectorBasis"]
 
 PackageScope["binomialSum"]
 PackageScope["gradeIndices"]
+PackageScope["indexSpan"]
 
 
 MultivectorBasis::usage = "MultivectorBasis[A, g] gives a list of multivectors from canonical basis of geometric algebra A with grade g";
@@ -41,3 +42,15 @@ A_GeometricAlgebra["PseudoBasis"] := A["Pseudoscalar"] ** # & /@ MultivectorBasi
 (* Utility functions *)
 
 binomialSum[n_Integer, k_Integer] := Module[{i}, Evaluate[Sum[Binomial[n, i], {i, 0, k}]]]
+
+
+gradeIndices[A_GeometricAlgebra, k_Integer] := SparseArray[
+    Thread[Range[binomialSum[A["Dimension"], k - 1] + 1, binomialSum[A["Dimension"], k]] -> 1],
+    A["Order"]
+]
+
+
+indexSpan[v_Multivector, n_Integer] :=
+    binomialSum[v["GeometricAlgebra"]["Dimension"], n - 1] + 1 ;; binomialSum[v["GeometricAlgebra"]["Dimension"], n]
+
+indexSpan[_Multivector, All] := All

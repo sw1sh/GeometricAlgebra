@@ -45,14 +45,12 @@ PackageExport["Projection"]
 PackageExport["Rejection"]
 Rejection::usage = "Rejection[v, w] gives a rejection of multivector v on w";
 
-PackageExport["Squared"]
-Squared::usage = "Squared[v] gives v ** Involute[v] for multivector v";
-
 
 PackageScope["zeroMultivector"]
 PackageScope["identityMultivector"]
 PackageScope["geometricIndexBoxes"]
 PackageScope["multiplyIndices"]
+PackageScope["$defaultMultivectorFormatFunction"]
 
 
 Options[Multivector] = {
@@ -84,6 +82,8 @@ $MultivectorProperties = {
     "Inverse",
 
     "Dual",
+    "LeftDual",
+    "RightDual",
     "Tr",
     "Det"
 }
@@ -147,8 +147,7 @@ Multivector /: v_Multivector[opt: Alternatives @@ Join[Keys @ Options @ Geometri
 Multivector /: Normal[v_Multivector] := Normal @ v["Coordinates"]
 
 
-v_Multivector["Coordinates", n_Integer] :=
-    v["Coordinates"][[binomialSum[v["GeometricAlgebra"]["Dimension"], n - 1] + 1 ;; binomialSum[v["GeometricAlgebra"]["Dimension"], n]]]
+v_Multivector["Coordinates", n_] := v["Coordinates"][[indexSpan[v, n]]]
 
 
 v_Multivector["Coordinate", n_Integer] := v["Coordinates"][[n]]
@@ -157,7 +156,9 @@ v_Multivector["Coordinate", n_Integer] := v["Coordinates"][[n]]
 v_Multivector["Association"] := Association @ Map[Apply[v["Indices"][[First[#1]]] -> #2 &], Most @ ArrayRules[v["Coordinates"]]]
 
 
-v_Multivector["Span"] := MapIndexed[Multivector[SparseArray[#2 -> #1, v["GeometricAlgebra"]["Order"]], v["GeometricAlgebra"]] &, v["Coordinates"]]
+v_Multivector["Span"] := v["Span", All]
+
+v_Multivector["Span", n_] := MapThread[GeometricProduct, {v["Coordinates"][[indexSpan[v, n]]], MultivectorBasis[v["GeometricAlgebra"], n]}]
 
 
 v_Multivector["Flatten"] := Inner[GeometricProduct, v["Coordinates"], v["Basis"]]
@@ -210,7 +211,8 @@ Multivector[v_Multivector, A_GeometricAlgebra] := Multivector[
             Most @ ArrayRules @ v["Coordinates"]
         ],
         A["Order"]
-    ], "GeometricAlgebra" -> A
+    ],
+    A
 ]
 
 
@@ -227,7 +229,7 @@ Multivector /: Plus[vs__Multivector] /; Length[{vs}] > 1 := Module[{
     ws = Multivector[#, A] & /@ {vs};
     Multivector[
         Total[#["Coordinates"] & /@ ws],
-        "GeometricAlgebra" -> A
+        A
     ][Map[reduceFunctions]]
 ]
 
@@ -239,7 +241,7 @@ A_GeometricAlgebra["Zero"] := zeroMultivector[A]
 
 (* Scalar multiplication *)
 
-identityMultivector[A_GeometricAlgebra] := Multivector[{1}, "GeometricAlgebra" -> A]
+identityMultivector[A_GeometricAlgebra] := Multivector[{1}, A]
 
 identityMultivector[v_Multivector] := identityMultivector[v["GeometricAlgebra"]]
 
@@ -278,9 +280,9 @@ GeometricProduct[v_Multivector, w_Multivector] := Module[{
         Association @ Normal @ GroupBy[
             Flatten[MapIndexed[{#1, Extract[coords, #2]} &, mt[[All, All, 2]], {2}], 1],
             First,
-            Total @ #[[All, 2]]&
+            Total @ #[[All, 2]] &
         ],
-        "GeometricAlgebra" -> A
+        A
     ][Map[reduceFunctions]]
 ]
 
@@ -316,7 +318,7 @@ gradeProduct[v_Multivector, w_Multivector] := Outer[GeometricProduct, GradeList[
 
 gradeFunctionContraction[f_, vs__Multivector] := Fold[Total[MapIndexed[Grade[#1, f[#2 - 1]] &, gradeProduct[##], {2}], 2] &, {vs}]
 
-LeftContraction[vs__Multivector] := gradeFunctionContraction[Apply[Subtract] @* Reverse, vs]
+LeftContraction[vs__Multivector] := gradeFunctionContraction[Apply[Subtract] @* (#["Reverse"] &), vs]
 
 RightContraction[vs__Multivector] := gradeFunctionContraction[Apply[Subtract], vs]
 
@@ -339,8 +341,8 @@ reverseIndexCoordinate[A_GeometricAlgebra, indexPos_, x_] := Module[{newIndex, s
 ]
 
 v_Multivector["Reverse"] := Multivector[
-    Association[reverseIndexCoordinate[v["GeometricAlgebra"], #1, #2] & @@@ Most@ArrayRules@v["Coordinates"]], 
-    "GeometricAlgebra" -> v["GeometricAlgebra"]
+    Association[reverseIndexCoordinate[v["GeometricAlgebra"], #1, #2] & @@@ Most @ ArrayRules @ v["Coordinates"]], 
+    v["GeometricAlgebra"]
 ]
 
 
@@ -349,7 +351,7 @@ Involute[v_Multivector] := mapCoordinates[((-1) ^ # & @* Length /@ v["GeometricA
 v_Multivector["Involute"] = Involute[v]
 
 
-v_Multivector["Conjugate"] = Reverse[Involute[v]]
+v_Multivector["Conjugate"] = v["Involute"]["Reverse"]
 
 
 Multivector /: Projection[v_Multivector, w_Multivector] := w ** (v . w)
@@ -358,9 +360,7 @@ Multivector /: Projection[v_Multivector, w_Multivector] := w ** (v . w)
 Rejection[v_Multivector, w_Multivector] := (v \[Wedge] w) ** w
 
 
-Squared[v_Multivector] := v ** Involute[v]
-
-v_Multivector["Squared"] = Squared[v]
+v_Multivector["Squared"] = v ** v["Involute"]
 
 
 (* Inverse *)
@@ -381,11 +381,6 @@ Multivector /: Power[v_Multivector, p_Rational] := With[{n = Numerator[p], d = D
 
 (* Grade *)
 
-gradeIndices[A_GeometricAlgebra, k_Integer] := SparseArray[
-    Thread[Range[binomialSum[A["Dimension"], k - 1] + 1, binomialSum[A["Dimension"], k]] -> 1],
-    A["Order"]
-]
-
 
 Grade[v_Multivector, n_Integer] /; n < 0 || n > v["GeometricAlgebra"]["Dimension"] := zeroMultivector[v]
 
@@ -403,11 +398,6 @@ Grade[coords_List, k_Integer, opts : OptionsPattern[Multivector]] := With[{
 Grade[v_Multivector, "Even"] := Total[Grade[v, #] & /@ Range[0, v["GeometricAlgebra"]["Dimension"], 2]]
 
 Grade[v_Multivector, "Odd"] := Total[Grade[v, #] & /@ Range[1, v["GeometricAlgebra"]["Dimension"], 2]]
-
-
-v_Multivector["Norm"] := Sqrt[v ^ 2]
-
-v_Multivector["Normalize"] := v / v["Norm"]
 
 
 (* Special multivectors *)
@@ -450,7 +440,14 @@ v_Multivector["Dual"] := Dual[v]
 
 (* Various multivector functions *)
 
+v_Multivector["Norm"] := Sqrt[v ^ 2]
+
+
+v_Multivector["Normalize"] := v / v["Norm"]
+
+
 v_Multivector["Tr"] := v + v["Conjugate"]
+
 
 v_Multivector["Det"] := v ** v["Conjugate"]
 

@@ -52,6 +52,7 @@ va_MultivectorArray[opt_String] /; KeyExistsQ[Options[va], opt] := Lookup[Option
 
 va_MultivectorArray["Rank"] := Length @ va["Shape"]
 
+
 va_MultivectorArray[f_] := mapComponents[f, va]
 
 
@@ -112,16 +113,12 @@ transposeShape[shape_List, m_Integer <-> n_Integer] /; Length[shape] > 1 := MapA
 
 MultivectorArray /: Transpose[va_MultivectorArray, args___] :=
     If[va["Rank"] > 1,
-      MultivectorArray[Transpose[va["Components"], args], transposeShape[va["Shape"], args]],
-      MultivectorArray[va["Components"], transposeShape[va["Shape"]]]
+        MultivectorArray[Transpose[va["Components"], args], transposeShape[va["Shape"], args]],
+        MultivectorArray[va["Components"], transposeShape[va["Shape"]]]
     ]
 
 
-unaryOps = Grade | Reverse | Involute | Conjugate | LeftDual | RightDual | Dual | MultivectorTransform;
-
-MultivectorArray /: (f: unaryOps)[va_MultivectorArray, args___] :=
-    mapComponents[f[#, args] &, va]
-
+(* Contraction *)
 
 shapeContract[va_MultivectorArray] := With[{
     shapeContractions = SequencePosition[va["Shape"], {x_ ? Negative, y_ ? Positive} /; x == -y]
@@ -133,6 +130,9 @@ shapeContract[va_MultivectorArray] := With[{
 ]
 
 ShapeContract[va_MultivectorArray] := FixedPoint[shapeContract, va]
+
+
+(* Boxes *)
 
 shapeGridBoxes[array_, shape_] := If[shape === {},
     Slot[array],
