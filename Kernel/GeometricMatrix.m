@@ -8,7 +8,7 @@ PackageExport["ConvertGeometricAlgebra"]
 PackageExport["CanonicalMultivector"]
 PackageExport["MultivectorMatrix"]
 PackageExport["MatrixMultivector"]
-PackageExport["MultivectorBlocks"]
+PackageExport["MultivectorBlock"]
 
 PackageScope["kroneckerProduct"]
 PackageScope["nullToStandardMatrix"]
@@ -164,39 +164,41 @@ MultivectorMatrix[v_Multivector, opts: OptionsPattern[MultivectorMatrix]] := Mod
 ]
 
 
-Options[MultivectorBlocks] = {"Basis" -> "Null"}
+Options[MultivectorBlock] = {"Basis" -> "Null"}
 
-MultivectorBlocks[v_Multivector, opts: OptionsPattern[MultivectorMatrix]] := Module[{
+MultivectorBlock[v_Multivector, opts: OptionsPattern[MultivectorMatrix]] := Module[{
     G, n, p, q, X, basis, F, B
 },
     {p, q} = v["Signature"];
 
     n = Floor[(p + q) / 2];
     If[ n > 0,
-        G = lowerGeometricAlgebra @ lowerGeometricAlgebra @ v["GeometricAlgebra"];
-        X = MultivectorNumber /@ ConvertGeometricAlgebra[v, v["ComplexAlgebra"]]["ComplexCoordinates"];
+        G = GeometricAlgebra @ MapThread[Max, {v["ComplexAlgebra"]["Signature"] - {1, 1}, {0, 0}}];
+        X = MultivectorNumber[#, G["ComplexAlgebra"]] & /@ ConvertGeometricAlgebra[v, v["ComplexAlgebra"]]["ComplexCoordinates"];
         basis = If[OptionValue["Basis"] == "Null", nullToStandardMatrix, spectralToStandardMatrix];
         F = Inverse @ basis[n];
         B = basis[n - 1];
         BlockMap[
-            Multivector[(B . Flatten[#, 1]) . X, G["ComplexAlgebra"]] &,
+            Multivector[AssociationThread[G["ReIndices"], (B . Flatten[#, 1]) . X], G]["Flatten"] &,
             Partition[F, 2 ^ n],
             {2 ^ (n - 1), 2 ^ (n - 1)}
         ],
 
         {{v}}
-    ]
+    ] // MultivectorArray
 ]
 
-MultivectorBlocks[v_Multivector, n_Integer ? NonNegative, opts: OptionsPattern[MultivectorMatrix]] :=
+MultivectorBlock[v_Multivector, n_Integer /; n > 0, opts: OptionsPattern[MultivectorMatrix]] :=
     With[{
-        blocks = MultivectorBlocks[v, opts]
+        blocks = MultivectorBlock[v, opts]
     },
-        If[ n > 0,
-            Flatten[Map[MultivectorBlocks[#, n - 1, opts] &, blocks, {2}], {{1, 3}, {2, 4}}],
+        If[ n > 1,
+            MultivectorArray @ Flatten[Map[MultivectorBlock[#, n - 1, opts]["Components"] &, blocks["Components"], {2}], {{1, 3}, {2, 4}}],
             blocks
         ]
     ]
+
+MultivectorBlock[v_Multivector, 0, ___] := MultivectorArray[{{v}}]
 
 
 Options[MatrixMultivector] = {"Basis" -> "Null", Method -> "Matrix"};
@@ -221,7 +223,7 @@ MatrixMultivector[mat_MultivectorArray, opts: OptionsPattern[MatrixMultivector]]
 
     g = mat["GeometricAlgebra"];
     G = GeometricAlgebra[{n, n}];
-    If[g["Dimension"] > 1,
+    If[ g["Dimension"] > 1,
         m = Floor[g["Dimension"] / 2];
         Return @ MatrixMultivector[
             MultivectorArray[
