@@ -37,8 +37,6 @@ RightDual::usage = "Dual[v] gives a right dual of multivector v";
 PackageExport["Dual"]
 Dual::usage = "Dual[v] gives a left dual of multivector v";
 
-PackageExport["Reverse"]
-
 PackageExport["Involute"]
 Involute::usage = "Involute[v] gives a multivector with its odd grades multiplied by -1";
 
@@ -228,9 +226,9 @@ Multivector /: Plus[vs__Multivector] /; Length[{vs}] > 1 := Module[{
 },
     ws = Multivector[#, A] & /@ {vs};
     Multivector[
-        Activate @ reduceFunctions[Total[#["Coordinates"] & /@ ws]],
+        Total[#["Coordinates"] & /@ ws],
         "GeometricAlgebra" -> A
-    ]
+    ][Map[reduceFunctions]]
 ]
 
 Multivector /: Plus[x: Except[_Multivector], v_Multivector] := x identityMultivector[v] + v
@@ -277,13 +275,13 @@ GeometricProduct[v_Multivector, w_Multivector] := Module[{
     mt = A["MultiplicationTable"];
     coords = mt[[All, All, 1]] Outer[coordinateTimes, x, y];
     Multivector[
-        Association @ Activate @ Normal @ reduceFunctions @ GroupBy[
+        Association @ Normal @ GroupBy[
             Flatten[MapIndexed[{#1, Extract[coords, #2]} &, mt[[All, All, 2]], {2}], 1],
             First,
             Total @ #[[All, 2]]&
         ],
         "GeometricAlgebra" -> A
-    ]
+    ][Map[reduceFunctions]]
 ]
 
 GeometricProduct[x_, y_] := x * y
@@ -340,22 +338,18 @@ reverseIndexCoordinate[A_GeometricAlgebra, indexPos_, x_] := Module[{newIndex, s
     newIndex -> sign x
 ]
 
-Multivector /: Reverse[v_Multivector] := Multivector[
+v_Multivector["Reverse"] := Multivector[
     Association[reverseIndexCoordinate[v["GeometricAlgebra"], #1, #2] & @@@ Most@ArrayRules@v["Coordinates"]], 
     "GeometricAlgebra" -> v["GeometricAlgebra"]
 ]
 
-v_Multivector["Reverse"] := Reverse[v]
 
-
-Involute[v_Multivector] := mapCoordinates[((-1)^# &@*Length /@ v["GeometricAlgebra"]["Indices"]) # &, v]
+Involute[v_Multivector] := mapCoordinates[((-1) ^ # & @* Length /@ v["GeometricAlgebra"]["Indices"]) # &, v]
 
 v_Multivector["Involute"] = Involute[v]
 
 
-Multivector /: Conjugate[v_Multivector] := Reverse[Involute[v]]
-
-v_Multivector["Conjugate"] = Conjugate[v]
+v_Multivector["Conjugate"] = Reverse[Involute[v]]
 
 
 Multivector /: Projection[v_Multivector, w_Multivector] := w ** (v . w)
@@ -412,8 +406,6 @@ Grade[v_Multivector, "Odd"] := Total[Grade[v, #] & /@ Range[1, v["GeometricAlgeb
 
 
 v_Multivector["Norm"] := Sqrt[v ^ 2]
-    (*Sqrt @ Total[With[{s = # ^ 2}, Total[s["Coordinate", 0] + I s["Coordinates", -1]]] & /@ GradeList[v]]*)
-
 
 v_Multivector["Normalize"] := v / v["Norm"]
 
@@ -458,13 +450,9 @@ v_Multivector["Dual"] := Dual[v]
 
 (* Various multivector functions *)
 
-Multivector /: Tr[v_Multivector] := v + Conjugate[v]
+v_Multivector["Tr"] := v + v["Conjugate"]
 
-v_Multivector["Tr"] := Tr[v]
-
-Multivector /: Det[v_Multivector] := v ** Conjugate[v]
-
-v_Multivector["Det"] := v["Det"]
+v_Multivector["Det"] := v ** v["Conjugate"]
 
 
 (* Utility functions *)
