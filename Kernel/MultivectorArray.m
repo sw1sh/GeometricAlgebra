@@ -27,11 +27,16 @@ $MultivectorArrayProperties = {
 
 MultivectorArray::badShape = "Specified shape `1` is not cmopatible with dimensions `2`";
 
+MultivectorArray[vs_, shape: {___Integer}] /; ArrayQ[vs, _, MatchQ[_MultivectorArray]] :=
+    MultivectorArray[
+        Map[#["Components"] &, vs, {ArrayDepth[vs]}],
+        Join[shape, First[MaximalBy[Flatten @ vs, #["Rank"] &]]["Shape"]]
+    ]
 
 MultivectorArray[vs_, shape: {___Integer}] /; ArrayQ[vs, _, MatchQ[_Multivector]] := If[
     DeleteCases[Dimensions[vs], 0] == Abs[DeleteCases[shape, 0]],
     MultivectorArray["Components" -> vs, "Shape" -> shape],
-    (*Message[MultivectorArray::badShape, shape, Dimensions[vs]]; *)$Failed
+    Message[MultivectorArray::badShape, shape, Dimensions[vs]]; $Failed
 ]
 
 MultivectorArray[vs_, shape_] /; ArrayQ[vs] :=
