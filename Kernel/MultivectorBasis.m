@@ -23,9 +23,13 @@ MultivectorBasis[A_GeometricAlgebra, n_Integer ? Negative] := MultivectorBasis[A
 
 MultivectorBasis[A_GeometricAlgebra, 0] := {Multivector[1, A]}
 
+MultivectorBasis[A_GeometricAlgebra, "Even"] := Catenate[MultivectorBasis[A, #] & /@ Range[0, A["Dimension"], 2]]
+
+MultivectorBasis[A_GeometricAlgebra, "Odd"] := Catenate[MultivectorBasis[A, #] & /@ Range[1, A["Dimension"], 2]]
+
 MultivectorBasis[A_GeometricAlgebra] := MultivectorBasis[A, All]
 
-MultivectorBasis[A_GeometricAlgebra, {args___}] := MultivectorBasis[A, #] & /@ {args}
+MultivectorBasis[A_GeometricAlgebra, {args___}] := Catenate[MultivectorBasis[A, #] & /@ {args}]
 
 MultivectorBasis[v_Multivector, args___] := MultivectorBasis[v["GeometricAlgebra"], args]
 
@@ -34,9 +38,9 @@ MultivectorBasis[args__] := MultivectorBasis[GeometricAlgebra[], args]
 MultivectorBasis[] := MultivectorBasis[All]
 
 
-A_GeometricAlgebra["Basis"] := MultivectorBasis[A]
+A_GeometricAlgebra["Basis", args___] := MultivectorBasis[A, args]
 
-A_GeometricAlgebra["PseudoBasis"] := A["Pseudoscalar"] ** # & /@ MultivectorBasis[A]
+A_GeometricAlgebra["PseudoBasis", args___] := A["Pseudoscalar"] ** # & /@ MultivectorBasis[A, args]
 
 
 (* Utility functions *)

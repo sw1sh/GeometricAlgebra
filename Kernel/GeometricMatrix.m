@@ -120,6 +120,9 @@ ConvertGeometricAlgebra[
     ]
 ]
 
+ConvertGeometricAlgebra[v_Multivector, args: Except[OptionsPattern[]], opts: OptionsPattern[]] :=
+    ConvertGeometricAlgebra[v, GeometricAlgebra[args, FilterRules[{opts}, Options[GeomegricAlgebra]]], opts]
+
 
 CanonicalMultivector[v_Multivector, opts : OptionsPattern[]] :=
     ConvertGeometricAlgebra[

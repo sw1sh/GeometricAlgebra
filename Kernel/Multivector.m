@@ -66,6 +66,7 @@ $MultivectorProperties = {
     "Coordinate",
     "Association",
     "Span",
+    "Grade",
     "Flatten",
     "Scalar",
     "Pseudoscalar",
@@ -147,10 +148,14 @@ Multivector /: v_Multivector[opt: Alternatives @@ Join[Keys @ Options @ Geometri
 Multivector /: Normal[v_Multivector] := Normal @ v["Coordinates"]
 
 
-v_Multivector["Coordinates", n_] := v["Coordinates"][[indexSpan[v, n]]]
+v_Multivector["Coordinates", n_Integer] := v["Coordinates"][[indexSpan[v, n]]]
+
+v_Multivector["Coordinates", {ns__Integer}] := Join @@ (v["Coordinates", #] & /@ {ns})
 
 
 v_Multivector["Coordinate", n_Integer] := v["Coordinates"][[n]]
+
+v_Multivector["Coordinate", {ns__Integer}] := v["Coordinates"][[{ns}]]
 
 
 v_Multivector["Association"] := Association @ Map[Apply[v["Indices"][[First[#1]]] -> #2 &], Most @ ArrayRules[v["Coordinates"]]]
@@ -158,7 +163,9 @@ v_Multivector["Association"] := Association @ Map[Apply[v["Indices"][[First[#1]]
 
 v_Multivector["Span"] := v["Span", All]
 
-v_Multivector["Span", n_] := MapThread[GeometricProduct, {v["Coordinates"][[indexSpan[v, n]]], MultivectorBasis[v["GeometricAlgebra"], n]}]
+v_Multivector["Span", n_Integer] := MapThread[GeometricProduct, {v["Coordinates"][[indexSpan[v, n]]], MultivectorBasis[v["GeometricAlgebra"], n]}]
+
+v_Multivector["Span", {ns__Integer}] := Catenate[v["Span", #] & /@ {ns}]
 
 
 v_Multivector["Flatten"] := Inner[GeometricProduct, v["Coordinates"], v["Basis"]]
@@ -398,6 +405,9 @@ Grade[coords_List, k_Integer, opts : OptionsPattern[Multivector]] := With[{
 Grade[v_Multivector, "Even"] := Total[Grade[v, #] & /@ Range[0, v["GeometricAlgebra"]["Dimension"], 2]]
 
 Grade[v_Multivector, "Odd"] := Total[Grade[v, #] & /@ Range[1, v["GeometricAlgebra"]["Dimension"], 2]]
+
+
+v_Multivector["Grade", arg_] := Grade[v, arg]
 
 
 (* Special multivectors *)

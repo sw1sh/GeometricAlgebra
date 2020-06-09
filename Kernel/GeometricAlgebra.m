@@ -93,6 +93,9 @@ A_GeometricAlgebra["ReIndices"] := Cases[A["Indices"], _List ? (FreeQ[#, middleI
 A_GeometricAlgebra["ImIndexSigns"] := With[{i = Last @ A["Indices"]}, Rule @@ Reverse @ multiplyIndices[i, #, A["Metric"]] & /@ A["ReIndices"]]
 
 
+GeometricAlgebra /: Equal[gs__GeometricAlgebra]:= Equal @@ (#["Signature"] & /@ {gs})
+
+
 (* Boxes *)
 
 
