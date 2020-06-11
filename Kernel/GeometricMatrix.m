@@ -45,9 +45,9 @@ kroneckerProduct[vas__MultivectorArray, opts : OptionsPattern[]] := Fold[kroneck
 kroneckerProduct[OptionsPattern[]] := MultivectorArray[{Multivector[{1}, {0, 0}]}, {If[OptionValue["Direction"] === Left, - 1, 1]}]
 
 
-LeftKroneckerProduct[vas__MultivectorArray] := kroneckerProduct[vas, "Direction" -> Left]
+LeftKroneckerProduct[vas___MultivectorArray] := kroneckerProduct[vas, "Direction" -> Left]
 
-RightKroneckerProduct[vas__MultivectorArray] := kroneckerProduct[vas, "Direction" -> Right]
+RightKroneckerProduct[vas___MultivectorArray] := kroneckerProduct[vas, "Direction" -> Right]
 
 
 CanonicalGeometricAlgebra[G_GeometricAlgebra] := Module[{
@@ -189,7 +189,7 @@ MultivectorBlock[v_Multivector, opts: OptionsPattern[]] := Module[{
         F = Inverse @ nilpotentMatrix[n];
         B = nilpotentMatrix[n - 1];
         BlockMap[
-            Multivector[AssociationThread[G["ReIndices"], (B . Flatten[#, 1]) . X], G]["Flatten"] &,
+            Multivector[AssociationThread[G[If[OddQ[p + q], "ReIndices", "Indices"]], (B . Flatten[#, 1]) . X], G]["Flatten"] &,
             Partition[F, 2 ^ n],
             {2 ^ (n - 1), 2 ^ (n - 1)}
         ],
@@ -345,6 +345,8 @@ MultivectorFunction[f_Symbol, v_Multivector, opts: OptionsPattern[]] /; MemberQ[
 
 (* Utility functions *)
 
+
+nilpotentBasis[0] := MultivectorArray[{{1}}]
 
 nilpotentBasis[n_Integer] := Module[{A, u, Bt, G, i},
     G = GeometricAlgebra[n, n + 1];

@@ -120,7 +120,7 @@ MultivectorNumber[v_Multivector, A_GeometricAlgebra] :=
 
 MultivectorNumber[v_Multivector] := MultivectorNumber[v, GeometricAlgebra @ If[v["PseudoscalarSquare"] == 1, {1, 0}, {0, 1}]]
 
-MultivectorNumber[x_] := x
+MultivectorNumber[x_, ___] := x
 
 
 ComplexMultivector[v_Multivector] := ComplexMultivector[v, v["GeometricAlgebra"]]
@@ -168,7 +168,7 @@ v_Multivector["Coordinate", {ns__Integer}] := v["Coordinates"][[{ns}]]
 v_Multivector["Association"] := Association @ Map[Apply[v["Indices"][[First[#1]]] -> #2 &], Most @ ArrayRules[v["Coordinates"]]]
 
 
-v_Multivector["Span"] := v["Span", All]
+v_Multivector["Span"] := MapThread[GeometricProduct, {v["Coordinates"], MultivectorBasis[v["GeometricAlgebra"]]}]
 
 v_Multivector["Span", n_Integer] := MapThread[GeometricProduct, {v["Coordinates"][[indexSpan[v, n]]], MultivectorBasis[v["GeometricAlgebra"], n]}]
 
