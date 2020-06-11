@@ -18,3 +18,4 @@ PacletInstall["https://github.com/sw1sh/GeometricAlgebra/releases/download/0.8/G
 * [Basic Examples](https://www.wolframcloud.com/obj/murzin.nikolay/Published/Tutorial.nb)
 * [Geometric Matricies](https://www.wolframcloud.com/obj/murzin.nikolay/Published/GeometricMatrix.nb)
 * [Matrix Gateway](https://www.wolframcloud.com/obj/murzin.nikolay/Published/MatrixGateway.nb)
+* [Pauli and Dirac algebras](https://www.wolframcloud.com/obj/murzin.nikolay/Published/PauliDirac.nb)
