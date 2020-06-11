@@ -9,18 +9,17 @@ PackageExport["CanonicalMultivector"]
 PackageExport["MultivectorMatrix"]
 PackageExport["MatrixMultivector"]
 PackageExport["MultivectorBlock"]
+PackageExport["LeftKroneckerProduct"]
+PackageExport["RightKroneckerProduct"]
 
-PackageScope["kroneckerProduct"]
-PackageScope["nullToStandardMatrix"]
-PackageScope["spectralToStandardMatrix"]
-
-
-PackageScope["kroneckerProduct"]
+PackageScope["nilpotentBasis"]
+PackageScope["nilpotentMatrix"]
+PackageScope["multivectorBasisMatrix"]
 
 
 Options[kroneckerProduct] = {"Direction" -> Left, "Flatten" -> True};
 
-kroneckerProduct[va_MultivectorArray, wa_MultivectorArray, OptionsPattern[kroneckerProduct]] := With[{
+kroneckerProduct[va_MultivectorArray, wa_MultivectorArray, OptionsPattern[]] := With[{
     a = va ** wa,
     r = va["Rank"],
     s1 = va["Shape"],
@@ -39,11 +38,16 @@ kroneckerProduct[va_MultivectorArray, wa_MultivectorArray, OptionsPattern[kronec
     ]
 ]
 
-kroneckerProduct[va_MultivectorArray, OptionsPattern[kroneckerProduct]] := va
+kroneckerProduct[va_MultivectorArray, OptionsPattern[]] := va
 
-kroneckerProduct[vas__MultivectorArray, opts : OptionsPattern[kroneckerProduct]] := Fold[kroneckerProduct[##, opts] &, {vas}]
+kroneckerProduct[vas__MultivectorArray, opts : OptionsPattern[]] := Fold[kroneckerProduct[##, opts] &, {vas}]
 
-kroneckerProduct[OptionsPattern[kroneckerProduct]] := MultivectorArray[{Multivector[{1}, {0, 0}]}, {If[OptionValue["Direction"] === Left, - 1, 1]}]
+kroneckerProduct[OptionsPattern[]] := MultivectorArray[{Multivector[{1}, {0, 0}]}, {If[OptionValue["Direction"] === Left, - 1, 1]}]
+
+
+LeftKroneckerProduct[vas__MultivectorArray] := kroneckerProduct[vas, "Direction" -> Left]
+
+RightKroneckerProduct[vas__MultivectorArray] := kroneckerProduct[vas, "Direction" -> Right]
 
 
 CanonicalGeometricAlgebra[G_GeometricAlgebra] := Module[{
@@ -149,28 +153,32 @@ fromRealCanonicalMultivector[v_Multivector, A_GeometricAlgebra] /;
 ]
 
 
-Options[MultivectorMatrix] = {"Basis" -> "Null"}
+Options[MultivectorMatrix] = {"Basis" -> Automatic};
 
-MultivectorMatrix[v_Multivector, opts: OptionsPattern[MultivectorMatrix]] := Module[{
-    p, q, G, n, X, M, mat
+MultivectorMatrix[v_Multivector, opts: OptionsPattern[]] := Module[{
+    p, q, n, X, M, mat
 },
     {p, q} = v["Signature"];
 
     n = Floor[(p + q) / 2];
-    G = v["ComplexAlgebra"];
 
-    X = MultivectorNumber /@ ConvertGeometricAlgebra[v, G]["ComplexCoordinates"];
-    M = PseudoInverse[If[OptionValue["Basis"] == "Null", nullToStandardMatrix[n], spectralToStandardMatrix[n]]];
+    M = Inverse @ If[
+        OptionValue["Basis"] === Automatic,
+        nilpotentMatrix[n],
+
+        multivectorBasisMatrix[OptionValue["Basis"]]
+    ];
+    X = MultivectorNumber /@ ConvertGeometricAlgebra[v, v["ComplexAlgebra"]]["ComplexCoordinates"];
     mat = MultivectorArray[Partition[M . X, 2 ^ n]];
 
     mat
 ]
 
 
-Options[MultivectorBlock] = {"Basis" -> "Null"}
+Options[MultivectorBlock] = {}
 
-MultivectorBlock[v_Multivector, opts: OptionsPattern[MultivectorMatrix]] := Module[{
-    G, n, p, q, X, basis, F, B
+MultivectorBlock[v_Multivector, opts: OptionsPattern[]] := Module[{
+    G, n, p, q, X, F, B
 },
     {p, q} = v["Signature"];
 
@@ -178,9 +186,8 @@ MultivectorBlock[v_Multivector, opts: OptionsPattern[MultivectorMatrix]] := Modu
     If[ n > 0,
         G = GeometricAlgebra @ MapThread[Max, {v["ComplexAlgebra"]["Signature"] - {1, 1}, {0, 0}}];
         X = MultivectorNumber[#, G["ComplexAlgebra"]] & /@ ConvertGeometricAlgebra[v, v["ComplexAlgebra"]]["ComplexCoordinates"];
-        basis = If[OptionValue["Basis"] == "Null", nullToStandardMatrix, spectralToStandardMatrix];
-        F = Inverse @ basis[n];
-        B = basis[n - 1];
+        F = Inverse @ nilpotentMatrix[n];
+        B = nilpotentMatrix[n - 1];
         BlockMap[
             Multivector[AssociationThread[G["ReIndices"], (B . Flatten[#, 1]) . X], G]["Flatten"] &,
             Partition[F, 2 ^ n],
@@ -204,14 +211,15 @@ MultivectorBlock[v_Multivector, n_Integer /; n > 0, opts: OptionsPattern[Multive
 MultivectorBlock[v_Multivector, 0, ___] := MultivectorArray[{{v}}]
 
 
-Options[MatrixMultivector] = {"Basis" -> "Null", Method -> "Matrix"};
+Options[MatrixMultivector] = {"Basis" -> Automatic, Method -> "Matrix"};
 
-MatrixMultivector::unknownMethod = "Method should be one of {\"Multivector\", \"Matrix\"}";
+MatrixMultivector::unknownMethod = "Method should be one of {\"Basis\", \"Matrix\"}";
 MatrixMultivector::nonsq = "Not a square matrix";
 MatrixMultivector::non2pow = "Matrix dimension `1` is not a power of 2";
+MatrixMultivector::invalidBasis = "Specified basis is not a multivector of right dimensions";
 
-MatrixMultivector[mat_MultivectorArray, opts: OptionsPattern[MatrixMultivector]] := Module[{
-    dim, n, g, G, m, A, At, u, B, Bt, sa, M, v
+MatrixMultivector[mat_MultivectorArray, opts: OptionsPattern[]] := Module[{
+    dim, n, g, G, m, basis, M, X
 },
     dim = Dimensions[mat];
     If[ Length[dim] != 2 || Not[Equal @@ dim],
@@ -225,7 +233,6 @@ MatrixMultivector[mat_MultivectorArray, opts: OptionsPattern[MatrixMultivector]]
     ];
 
     g = mat["GeometricAlgebra"];
-    G = GeometricAlgebra[{n, n}];
     If[ g["Dimension"] > 1,
         m = Floor[g["Dimension"] / 2];
         Return @ MatrixMultivector[
@@ -244,74 +251,61 @@ MatrixMultivector[mat_MultivectorArray, opts: OptionsPattern[MatrixMultivector]]
         ]
     ];
 
-    Switch[OptionValue[Method],
+    Switch[
+        OptionValue[Method],
 
-        "Multivector",
-         At = Apply[
-             kroneckerProduct[##] &,
-             Table[
-                 MultivectorArray[{Multivector[1, G], If[OptionValue["Basis"] == "Null", G["Null", i], Multivector[<|{i} -> 1|>, G]]}, {-2}],
-                 {i, 1, n}
-             ]
-         ];
-         u = Apply[
-             GeometricProduct,
-             Table[
-                 If[OptionValue["Basis"] == "Null", G["Idempotent", i], Multivector[<|{} -> 1 / 2, {-i} -> I / 2|>, G]],
-                 {i, 1, n}
-             ]
-         ];
-         B = Apply[
-             kroneckerProduct[##, "Direction" -> Right] &,
-             Reverse @ Table[
-                 MultivectorArray[{Multivector[1, G], If[OptionValue["Basis"] == "Null", G["Null", - i], Multivector[<|{i} -> 1|>, G]]}],
-                 {i, 1, n}
-             ]
-         ];
-         sa = mapComponents[
-             Multivector[{#}, 0] &,
-             mat
-         ];
-         ((At ** u) ** (sa ** B))["Components"],
+        "Basis",
 
-         "MultivectorTranspose",
-         A = Apply[
-             kroneckerProduct[##] &,
-             Table[
-                 MultivectorArray[{Multivector[1, G], If[OptionValue["Basis"] == "Null", G["Null", i], Multivector[<|{i} -> 1|>, G]]}],
-                 {i, 1, n}
-             ]
-         ];
-         u = Apply[
-             GeometricProduct,
-             Table[
-                 If[OptionValue["Basis"] == "Null", G["Idempotent", i], Multivector[<|{} -> 1 / 2, {-i} -> I / 2|>, G]],
-                 {i, 1, n}
-             ]
-         ];
-         Bt = Apply[
-             kroneckerProduct[##, "Direction" -> Right] &,
-             Reverse @ Table[
-                 MultivectorArray[{Multivector[1, G], If[OptionValue["Basis"] == "Null", G["Null", - i], Multivector[<|{i} -> 1|>, G]]}, {-2}],
-                 {i, 1, n}
-             ]
-         ];
-         Total[(A ** u ** Bt)["Components"] mat["Numeric"], 2],
+        If[
+            OptionValue["Basis"] === Automatic,
 
-         "Matrix",
-         M = If[OptionValue["Basis"] == "Null", nullToStandardMatrix[n], spectralToStandardMatrix[n]];
-         Multivector[
-            M . (Flatten @ mat["Numeric"]),
-            GeometricAlgebra[n, n]
-         ],
+            (* Construct nilpotent basis *)
+            basis = nilpotentBasis[n],
 
-         _,
-         Message[MatrixMultivector::unknownMethod];
-         $Failed
+            (* Explicit basis *)
+            If[
+                Not[MatchQ[OptionValue["Basis"], _MultivectorArray] && Dimensions[OptionValue["Basis"]] == Dimensions[mat]],
+
+                Message[MatrixMultivector::invalidBasis];
+                Return[$Failed],
+
+                basis = OptionValue["Basis"][CanonicalMultivector]
+            ]
+
+        ];
+        M = mat[MultivectorNumber]["Components"];
+        Total[MapThread[#2[Map[Curry[Times][#1]]] &, {M, basis["Components"]}, 2], 2],
+
+        "Matrix",
+        G = GeometricAlgebra[{n, n}];
+        X = Flatten @ mat[MultivectorNumber]["Components"];
+        M = If[
+            OptionValue["Basis"] === Automatic,
+
+            nilpotentMatrix[n],
+
+            If[
+                Not[MatchQ[OptionValue["Basis"], _MultivectorArray] && Dimensions[OptionValue["Basis"]] == Dimensions[mat]],
+
+                Message[MatrixMultivector::invalidBasis];
+                Return[$Failed],
+
+                multivectorBasisMatrix[OptionValue["Basis"]]
+
+            ]
+        ];
+        Multivector[
+            M . X,
+            G
+        ],
+
+        _,
+        Message[MatrixMultivector::unknownMethod];
+        $Failed
     ]
 ]
 
-MatrixMultivector[mat_MultivectorArray, G_GeometricAlgebra, opts: OptionsPattern[MatrixMultivector]] :=
+MatrixMultivector[mat_MultivectorArray, G_GeometricAlgebra, opts: OptionsPattern[]] :=
     ConvertGeometricAlgebra[MatrixMultivector[mat, opts][Map[NumberMultivector[#, G["ComplexAlgebra"]] &]]["Flatten"], G]
 
 
@@ -322,16 +316,19 @@ MultivectorFunction[f_, v_Multivector, opts: OptionsPattern[]] := Module[{X, g, 
     re = Map[#["Scalar"] &, X, {2}];
     im = Map[#["Pseudoscalar"] &, X, {2}];
 
-    If[ v["PseudoscalarSquare"] == 1,
-        (* hyperbolic (split-complex) case *)
-        a = f[re + im];
-        b = f[re - im];
-        Y = MapThread[Multivector[{##}, GeometricAlgebra[1, 0]] &, {a + b, a - b} / 2, 2],
+    Check[
+        If[ v["PseudoscalarSquare"] == 1,
+            (* hyperbolic (split-complex) case *)
+            a = f[re + im];
+            b = f[re - im];
+            Y = MapThread[Multivector[{##}, GeometricAlgebra[1, 0]] &, {a + b, a - b} / 2, 2],
 
-        (* complex case *)
-        a = f[re + I im];
-        b = f[re - I im];
-        Y = MapThread[Multivector[{#1, - I #2}, GeometricAlgebra[0, 1]] &, {a + b, a - b} / 2, 2]
+            (* complex case *)
+            a = f[re + I im];
+            b = f[re - I im];
+            Y = MapThread[Multivector[{#1, - I #2}, GeometricAlgebra[0, 1]] &, {a + b, a - b} / 2, 2]
+        ],
+        Return[$Failed]
     ];
     w = MatrixMultivector[
         MultivectorArray[Y],
@@ -349,23 +346,36 @@ MultivectorFunction[f_Symbol, v_Multivector, opts: OptionsPattern[]] /; MemberQ[
 (* Utility functions *)
 
 
-nullToStandardMatrix[n_Integer] := nullToStandardMatrix[n] = Module[{
-    m = 2 ^ n, sa, s
-},
-    sa = Array[s[##] &, {m, m}];
-
-    Coefficient[#, Flatten @ sa] & /@ Normal[
-        Multivector[MatrixMultivector[MultivectorArray[sa], Method -> "MultivectorTranspose"], GeometricAlgebra[n, n]][Map[ComplexExpand]]
-    ]
+nilpotentBasis[n_Integer] := Module[{A, u, Bt, G, i},
+    G = GeometricAlgebra[n, n + 1];
+    A = Apply[LeftKroneckerProduct,
+        Table[
+            MultivectorArray[{Multivector[1, G], G["Nilpotent", i]}],
+            {i, 1, n}
+        ]
+    ];
+    u = Apply[GeometricProduct, Table[G["Idempotent", i], {i, 1, n}]];
+    Bt = Apply[RightKroneckerProduct,
+        Reverse @ Table[
+            MultivectorArray[{Multivector[1, G], G["Nilpotent", -i]}, {-2}],
+            {i, 1, n}
+        ]
+    ];
+    A ** u ** Bt
 ]
 
 
-spectralToStandardMatrix[n_Integer] := spectralToStandardMatrix[n] = Module[{
-    m = 2 ^ n, sa, s
+multivectorBasisMatrix[mat_MultivectorArray] := multivectorBasisMatrix[mat] = Module[{
+    n, m, sa, s
 },
+    n = Log2[mat["Dimension"]] / 2;
+    m = 2 ^ n;
+    If[Not @ mat["DoubleSquareQ"], Return[$Failed]];
     sa = Array[s[##] &, {m, m}];
 
-    Coefficient[#, Flatten @ sa] & /@ Normal[
-        Multivector[MatrixMultivector[MultivectorArray[sa], "Basis" -> "Spectral", Method -> "MultivectorTranspose"], GeometricAlgebra[n, n]][Map[ComplexExpand]]
-    ]
+    Coefficient[#["Scalar"], Flatten @ sa] & /@
+        MatrixMultivector[MultivectorArray[sa], Method -> "Basis", "Basis" -> mat[CanonicalMultivector]]["ComplexCoordinates"]
 ]
+
+
+nilpotentMatrix[n_Integer] := nilpotentMatrix[n] = multivectorBasisMatrix[nilpotentBasis[n]]

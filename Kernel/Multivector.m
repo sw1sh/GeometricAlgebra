@@ -10,6 +10,8 @@ NumberMultivector::usage = "NumberMultivector[x, ga] gives a multivector corresp
 PackageExport["MultivectorNumber"]
 MultivectorNumber::usage = "MultivectorNumber[v] gives a complex number based on scalar and pseudoscalar parts of multivector";
 
+PackageExport["ComplexMultivector"]
+
 PackageExport["GeometricProduct"]
 GeometricProduct::usage = "GeometricProduct[vs__] computes geometric product of multivectors";
 
@@ -121,6 +123,11 @@ MultivectorNumber[v_Multivector] := MultivectorNumber[v, GeometricAlgebra @ If[v
 MultivectorNumber[x_] := x
 
 
+ComplexMultivector[v_Multivector] := ComplexMultivector[v, v["GeometricAlgebra"]]
+
+ComplexMultivector[v_Multivector, A_GeometricAlgebra] := ConvertGeometricAlgebra[MultivectorNumber[v, A["ComplexAlgebra"]], A]
+
+
 Multivector[x_ ? NumericQ, opts: OptionsPattern[]] := NumberMultivector[x, OptionValue["GeometricAlgebra"]]
 
 Multivector[v_Multivector, opts: OptionsPattern[]] := Multivector[mergeOptions[{{opts}, Options[v]}]]
@@ -142,7 +149,7 @@ Multivector /: f_Symbol[v_Multivector] /; MemberQ[Attributes[f], NumericFunction
 
 Multivector /: v_Multivector[opt: Alternatives @@ Keys @ Options @ Multivector] := Lookup[Options[v], opt]
 
-Multivector /: v_Multivector[opt: Alternatives @@ Join[Keys @ Options @ GeometricAlgebra, $GeometricAlgebraProperties]] := v["GeometricAlgebra"][opt]
+Multivector /: v_Multivector[opt: Alternatives @@ $GeometricAlgebraProperties] := v["GeometricAlgebra"][opt]
 
 
 Multivector /: Normal[v_Multivector] := Normal @ v["Coordinates"]
@@ -325,7 +332,7 @@ gradeProduct[v_Multivector, w_Multivector] := Outer[GeometricProduct, GradeList[
 
 gradeFunctionContraction[f_, vs__Multivector] := Fold[Total[MapIndexed[Grade[#1, f[#2 - 1]] &, gradeProduct[##], {2}], 2] &, {vs}]
 
-LeftContraction[vs__Multivector] := gradeFunctionContraction[Apply[Subtract] @* (#["Reverse"] &), vs]
+LeftContraction[vs__Multivector] := gradeFunctionContraction[Apply[Subtract] @* Reverse, vs]
 
 RightContraction[vs__Multivector] := gradeFunctionContraction[Apply[Subtract], vs]
 
@@ -421,14 +428,14 @@ pseudoscalar[] := pseudoscalar[GeometricAlgebra[]]
 A_GeometricAlgebra["Pseudoscalar"] := pseudoscalar[A]
 
 
-A_GeometricAlgebra["Null", n_Integer] := With[{
+A_GeometricAlgebra["Nilpotent", n_Integer] := With[{
     i = Min[Min[A["Signature"]], Abs[n]]
 },
     Multivector[<|{i} -> 1 / 2, {-i} -> Sign[n] 1 / 2|>, A]
 ]
 
 
-A_GeometricAlgebra["Idempotent", n_Integer] := A["Null", - n] ** A["Null", n]
+A_GeometricAlgebra["Idempotent", n_Integer] := A["Nilpotent", - n] ** A["Nilpotent", n]
 
 
 (* Duals *)

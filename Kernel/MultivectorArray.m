@@ -50,7 +50,16 @@ MultivectorArray[v_Multivector, shape_: {}] := MultivectorArray["Components" -> 
 va_MultivectorArray[opt_String] /; KeyExistsQ[Options[va], opt] := Lookup[Options[va], opt]
 
 
+va_MultivectorArray["Dimension"] := Times @@ Abs @ va["Shape"]
+
+
 va_MultivectorArray["Rank"] := Length @ va["Shape"]
+
+
+va_MultivectorArray["SquareQ"] := Equal @@ Dimensions[va]
+
+
+va_MultivectorArray["DoubleSquareQ"] := va["SquareQ"] && IntegerQ[Log2[va["Dimension"]] / 2]
 
 
 va_MultivectorArray[f_] := mapComponents[f, va]
@@ -60,6 +69,8 @@ MultivectorArray /: Dimensions[va_MultivectorArray] := Abs @ va["Shape"]
 
 
 va_MultivectorArray["GeometricAlgebra"] := GeometricAlgebra[MapThread[Max, Flatten[Map[#["Signature"] &, va["Components"], {va["Rank"]}], 1]]]
+
+MultivectorArray /: va_MultivectorArray[opt: Alternatives @@ $GeometricAlgebraProperties] := va["GeometricAlgebra"][opt]
 
 
 MultivectorArray /: f_[v_Multivector, va_MultivectorArray] := mapComponents[f[v, #] &, va]
@@ -71,7 +82,10 @@ MultivectorArray /: f_[x_ ? NumericQ, va_MultivectorArray] := mapComponents[f[x,
 MultivectorArray /: f_[va_MultivectorArray, y_ ? NumericQ] := mapComponents[f[#, y] &, va]
 
 
-va_MultivectorArray["Numeric"] := Map[MultivectorNumber, va["Components"], {va["Rank"]}]
+va_MultivectorArray["Numeric"] := Map[#["Numeric"] &, va["Components"], {2}]
+
+
+va_MultivectorArray["Real"] := va[#["Real"] &]
 
 
 MultivectorArray /: GeometricProduct[va_MultivectorArray, vb_MultivectorArray] /; va["Rank"] > 0 && vb["Rank"] > 0 := With[{
