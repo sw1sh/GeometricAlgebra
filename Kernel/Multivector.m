@@ -181,7 +181,10 @@ v_Multivector["Flatten"] := Inner[GeometricProduct, v["Coordinates"], v["Basis"]
 v_Multivector["Real"] := v[Re] + v["GeometricAlgebra"]["Pseudoscalar"] ** v[Im]
 
 
-v_Multivector["Numeric"] := v["Scalar"] + If[v["PseudoscalarSquare"] == 1, 1, I] v["Pseudoscalar"]
+v_Multivector["Numeric"] := If[v["Dimension"] > 0 && v["PseudoscalarSquare"] == 1,
+    v["Scalar"] IdentityMatrix[2] +  v["Pseudoscalar"] Reverse @ IdentityMatrix[2],
+    v["Scalar"] +  I v["Pseudoscalar"]
+]
 
 
 v_Multivector["ComplexCoordinates"] := Module[{
