@@ -322,6 +322,19 @@ Multivector /: Times[vs__Multivector] := GeometricProduct[vs]
 Multivector /: Power[v_Multivector, n_Integer] := If[n < 0, Power[Inverse[v], -n], Nest[# ** v &, identityMultivector[v], n]]
 
 
+(* Tensor product *)
+
+Multivector /: TensorProduct[v_Multivector, w_Multivector] := Module[{
+    p, q
+},
+    {p, q} = v["Signature"];
+    v ** Multivector[
+        KeyMap[# /. {i_ ? Positive :> i + p, i_ ? Negative :> i - q} &, w["Association"]],
+        GeometricAlgebra[{p, q} + w["Signature"]]
+    ]
+]
+
+
 (* infix notation *)
 
 Unprotect[NonCommutativeMultiply]
