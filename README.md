@@ -10,7 +10,7 @@
 
 ### Or with released paclet link
 ```
-PacletInstall["https://github.com/sw1sh/GeometricAlgebra/releases/download/0.8/GeometricAlgebra-0.8.paclet"]
+PacletInstall["https://github.com/sw1sh/GeometricAlgebra/releases/download/1.0/GeometricAlgebra-1.0.paclet"]
 ```
 
 ### Documentation

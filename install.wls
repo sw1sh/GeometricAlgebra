@@ -21,7 +21,7 @@ Check[
   pacletObjectQ[p_] := PacletObjectQ[p] || Head[p] === PacletManager`Paclet;
 
   If[pacletObjectQ[PacletInstall[First[$latestPacletFiles], "IgnoreVersion" -> True]],
-  	Print["Installed. Run Get[\"GeometricAlgebra`\"] to reload the package."],
+  	Print["Installed " <> First[$latestPacletFiles] <> ". Run Get[\"GeometricAlgebra`\"] to reload the package."],
     Print["Install failed."];
     $successQ = False];,
 

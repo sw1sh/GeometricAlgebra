@@ -16,7 +16,7 @@ copyWLSourceToBuildDirectory[] := With[{
 packPaclet[] := Module[{pacletFileName},
   pacletFileName = PackPaclet[$buildDirectory, $repoRoot];
   If[TrueQ[FileExistsQ[FileNames[packageName <> "*.paclet"][[1]]]],
-      Print[FileNames[packageName <> "*.paclet"][[1]] <> " ... OK"],
+      Print[FileNames[packageName <> "*.paclet"][[-1]] <> " ... OK"],
       Print["Paclet not produced"]
     ]
 ]
