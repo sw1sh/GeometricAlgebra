@@ -30,7 +30,9 @@ $GeometricAlgebraProperties = {
     "PseudoBasis",
 
     "MultiplicationTable",
-    "SignMatrix",
+    "MultiplicationSigns",
+    "MultiplicationTableWithSigns",
+
     "PseudoscalarSquare",
     "ComplexAlgebra",
 
@@ -61,9 +63,7 @@ A_GeometricAlgebra["Metric"] :=
         Join[ConstantArray[1, p], ConstantArray[-1, q]]
     ]
 
-A_GeometricAlgebra["Indices"] := Subsets[Join[Range[A["Signature"][[1]]], Range[-A["Signature"][[2]], -1]]]
-
-A_GeometricAlgebra["SignMatrix"] := A["SignMatrix"] = A["MultiplicationTable"][[All, All, 1]]
+A_GeometricAlgebra["Indices"] := A["Indices"] = Subsets[Join[Range[A["Signature"][[1]]], Range[-A["Signature"][[2]], -1]]]
 
 
 A_GeometricAlgebra["PseudoscalarSquare"] := Module[{p, q},

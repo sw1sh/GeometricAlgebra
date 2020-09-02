@@ -277,8 +277,16 @@ A_GeometricAlgebra["Identity"] := identityMultivector[A]
 
 (* Geometric Product *)
 
+A_GeometricAlgebra["MultiplicationTableWithSigns"] := A["MultiplicationTableWithSigns"] =
+    Outer[MapAt[First @ FirstPosition[A["Indices"], #] &, multiplyIndices[#1, #2, A["Metric"]], 2] &, A["Indices"], A["Indices"], 1]
+
+
 A_GeometricAlgebra["MultiplicationTable"] := A["MultiplicationTable"] =
-    Outer[multiplyIndices[#1, #2, A["Metric"]] &, A["Indices"], A["Indices"], 1]
+    Developer`ToPackedArray[A["MultiplicationTableWithSigns"][[All, All, 2]]]
+
+
+A_GeometricAlgebra["MultiplicationSigns"] := A["MultiplicationSigns"] =
+    Developer`ToPackedArray[A["MultiplicationTableWithSigns"][[All, All, 1]]]
 
 
 GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric product of multivectors v and w";
@@ -286,16 +294,14 @@ GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric 
 GeometricProduct[v_Multivector, w_Multivector] := Module[{
     A = mergeGeometricAlgebra[v, w],
     x, y,
-    mt,
     coords
 },
     x = Multivector[v, A]["Coordinates"];
     y = Multivector[w, A]["Coordinates"];
-    mt = A["MultiplicationTable"];
-    coords = mt[[All, All, 1]] Outer[coordinateTimes, x, y];
+    coords = A["MultiplicationSigns"] Outer[coordinateTimes, x, y];
     Multivector[
-        Association @ Normal @ GroupBy[
-            Flatten[MapIndexed[{#1, Extract[coords, #2]} &, mt[[All, All, 2]], {2}], 1],
+        SparseArray @ Normal @ GroupBy[
+            Thread[Flatten[A["MultiplicationTable"]] -> Flatten[coords]],
             First,
             Total @ #[[All, 2]] &
         ],
@@ -541,11 +547,11 @@ multiplyIndices[i_List, j_List, m_List] :=
     Module[{index = Join[i, j], newIndex, orderedIndex, sign, squares},
         If[AnyTrue[index, FailureQ[checkIndex[#, m]] &], Return[$Failed]];
         {orderedIndex, sign} = orderIndexWithSign[index, Length @ m];
-        {newIndex, squares} = Reap @ SequenceReplace[orderedIndex, {x_ ,x_} :> (Sow[x]; Nothing)];
+        {newIndex, squares} = Reap @ SequenceReplace[orderedIndex, {x_, x_} :> (Sow[x]; Nothing)];
         If[ Length[squares] > 0,
             sign = sign Times @@ m[[squares[[1]]]]
         ];
-        {sign ,newIndex}
+        {sign, newIndex}
     ]
 
 
