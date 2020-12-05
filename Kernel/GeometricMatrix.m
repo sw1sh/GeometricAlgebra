@@ -111,7 +111,7 @@ ConvertGeometricAlgebra[
 },
     toCanonicConversion = CanonicalGeometricIndices[v["GeometricAlgebra"]];
     fromCanonicConversion = CanonicalGeometricIndices[G];
-    canonicCoordinates = Association @ MapThread[#2[[2]] -> #1 #2[[1]] &,
+    canonicCoordinates = Association @ MapThread[Function[{x, y}, y[[2]] -> x y[[1]], HoldAllComplete],
         {v["Coordinates"], toCanonicConversion[[All, 2]]}
     ];
     i = OptionValue["Pseudoscalar"];
@@ -228,7 +228,7 @@ MatrixMultivector[mat_MultivectorArray, opts: OptionsPattern[]] := Module[{
     ];
     n = Log2[First @ dim];
     If[ Not[IntegerQ[n]],
-        Message[MatrixMultivector::non2pow, n];
+        Message[MatrixMultivector::non2pow, dim];
         Return[$Failed]
     ];
 
@@ -341,6 +341,9 @@ MultivectorFunction[f_, v_Multivector, opts: OptionsPattern[]] := Module[{X, g, 
 
 MultivectorFunction[f_Symbol, v_Multivector, opts: OptionsPattern[]] /; MemberQ[Attributes[f], NumericFunction] :=
     MultivectorFunction[MatrixFunction[f, #] &, v, opts]
+
+
+v_Multivector["Matrix"] := MultivectorMatrix[v]
 
 
 (* Utility functions *)

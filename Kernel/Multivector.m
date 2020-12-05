@@ -34,10 +34,7 @@ PackageExport["LeftDual"]
 LeftDual::usage = "LeftDual[v] gives a left dual of multivector v";
 
 PackageExport["RightDual"]
-RightDual::usage = "Dual[v] gives a right dual of multivector v";
-
-PackageExport["Dual"]
-Dual::usage = "Dual[v] gives a left dual of multivector v";
+RightDual::usage = "RightDual[v] gives a right dual of multivector v";
 
 PackageExport["Involute"]
 Involute::usage = "Involute[v] gives a multivector with its odd grades multiplied by -1";
@@ -84,7 +81,6 @@ $MultivectorProperties = {
 
     "Inverse",
 
-    "Dual",
     "LeftDual",
     "RightDual",
     "Tr",
@@ -165,7 +161,7 @@ v_Multivector["Coordinate", n_Integer] := v["Coordinates"][[n]]
 v_Multivector["Coordinate", {ns__Integer}] := v["Coordinates"][[{ns}]]
 
 
-v_Multivector["Association"] := Association @ Map[Apply[v["Indices"][[First[#1]]] -> #2 &], Most @ ArrayRules[v["Coordinates"]]]
+v_Multivector["Association"] := Association @ Map[Apply[Function[{x, y}, v["Indices"][[First[x]]] -> y, HoldAllComplete]], Most @ ArrayRules[v["Coordinates"]]]
 
 
 v_Multivector["Span"] := MapThread[GeometricProduct, {v["Coordinates"], MultivectorBasis[v["GeometricAlgebra"]]}]
@@ -472,9 +468,7 @@ RightDual[v_Multivector] := RightContraction[pseudoscalar[v], v]
 v_Multivector["RightDual"] := RightDual[v]
 
 
-Dual = LeftDual;
-
-v_Multivector["Dual"] := Dual[v]
+v_Multivector["Dual"] := LeftDual[v]
 
 
 (* Various multivector functions *)
@@ -510,15 +504,15 @@ functionBody[Function[body_]] := body
 functionBody[x_] := x
 
 
-reduceFunctions[expr_] := Activate @ FixedPoint[ReplaceRepeated[#, {
+reduceFunctions[expr_] := Activate @ FixedPoint[Function[x, ReplaceRepeated[x, {
     HoldPattern[(f: Function[x_])[y_]] :> With[{e = Inactivate[f[y], D]}, Function[e] /; True],
     f: HoldPattern[Function[x_]] /; FreeQ[Hold[x], _Slot, {0, \[Infinity]}] :> x,
-(*    f: HoldPattern[Function[{xs__}, x_]] /; FreeQ[x, Alternatives[xs], {0, \[Infinity]}]:> x,*)
-  (*  HoldPattern[Function[x_]] :> With[{e = Inactivate[x, D]}, Function[e] /; True],*)
+    (* f: HoldPattern[Function[{xs__}, x_]] /; FreeQ[x, Alternatives[xs], {0, \[Infinity]}]:> x,*)
+    (* HoldPattern[Function[x_]] :> With[{e = Inactivate[x, D]}, Function[e] /; True],*)
     HoldPattern[Function[Function[x_]]] :> With[{e = Simplify @ Inactivate[x, D]}, Function[e] /; True],
     HoldPattern[Plus[xs___, f_Function, ys___]] :> With[{e = Plus @@ (functionBody /@ Inactivate[{xs, f, ys}, D])}, Function[e] /; True],
     HoldPattern[Times[xs___, f_Function, ys___]] /; FreeQ[{xs, ys}, _Function, {0, \[Infinity]}] :> With[{e = Times @@ (functionBody /@ Inactivate[{xs, f, ys}, D])}, Function[e] /; True]
-}] &, expr]
+}], HoldAllComplete], expr]
 
 
 mapCoordinates[f_, v_Multivector] := Multivector[reduceFunctions[f[v["Coordinates"]]], v["GeometricAlgebra"]]
@@ -634,8 +628,8 @@ Multivector /: MakeBoxes[v: Multivector[opts: OptionsPattern[]], _] :=
                     Function[coord, Switch[coord,
                         1, InterpretationBox["\[InvisibleSpace]", coord],
                         -1, InterpretationBox["-", coord],
-                        _, If[Head[coord] === Multivector, RowBox[{"(", MakeBoxes[coord], ")"}], Parenthesize[coord, StandardForm, Times]]
-                    ], HoldFirst] @@ holdCoord,
+                        _, If[Head[coord] === Multivector, RowBox[{"(", coord, ")"}], Parenthesize[coord, StandardForm, Times]]
+                    ], HoldAllComplete] @@ holdCoord,
                     MakeBoxes @@ holdCoord
                 ], HoldRest]
             ],
