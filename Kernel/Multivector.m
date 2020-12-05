@@ -397,7 +397,7 @@ v_Multivector["Squared"] = v ** v["Involute"]
 
 (* Inverse *)
 
-Multivector /: Inverse[v_Multivector] := MultivectorFunction[Inverse, v]
+Multivector /: Inverse[v_Multivector] := MultivectorFunction[# ^ -1 &, v]
 
 v_Multivector["Inverse"] = Inverse[v]
 

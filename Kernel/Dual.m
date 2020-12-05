@@ -51,7 +51,7 @@ applyDuals[f_, values_List] := With[{
 ]
 
 
-Dual /: expr : f_[___, _Dual, ___] /; MatchQ[f, _Function] || numericFunctionQ[f] || ! hasDefinitionsQ[f] := 
+Dual /: expr : f_[___, _Dual, ___] /; MatchQ[f, _Function] || numericFunctionQ[f] || ! hasDefinitionsQ[f] :=
     applyDuals[f, Dual /@ List @@ Unevaluated[expr]]
 
 
@@ -65,8 +65,8 @@ Dual[v_, w_Multivector] := Dual[Multivector[v, w["GeometricAlgebra"]], w]
 
 
 
-MakeBoxes[d : Dual[x_, y_], fmt_] := Module[{z, zbox, sign},
-    If[NumericQ[y] && Negative[y] || MatchQ[y, -_],
+MakeBoxes[d : Dual[x_, y_], fmt_] := Module[{z = y, zbox, sign},
+    If[NumericQ[y] && Quiet[Check[Negative[y], False]] || MatchQ[y, -_],
         sign = "-";
         z = -y,
         sign = If[x === 0, Nothing, "+"];
@@ -82,10 +82,3 @@ MakeBoxes[d : Dual[x_, y_], fmt_] := Module[{z, zbox, sign},
         ]
     ]
 ]
-
-
-
-numericFunctionQ[f_] := MemberQ[Attributes[f], NumericFunction]
-
-
-hasDefinitionsQ[f_] := GeneralUtilities`HasDefinitionsQ[f] || Length[Attributes[f]] > 0
