@@ -5,7 +5,7 @@ PackageScope["hasDefinitionsQ"]
 
 
 
-numericFunctionQ[f_] := MemberQ[Attributes[f], NumericFunction]
+numericFunctionQ[f_] := MatchQ[f, _Symbol] && MemberQ[Attributes[f], NumericFunction]
 
 
 hasDefinitionsQ[f_Symbol] := GeneralUtilities`HasDefinitionsQ[f] || Length[Attributes[f]] > 0

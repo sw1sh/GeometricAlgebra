@@ -309,7 +309,7 @@ MatrixMultivector[mat_MultivectorArray, G_GeometricAlgebra, opts: OptionsPattern
     ConvertGeometricAlgebra[MatrixMultivector[mat, opts][Map[NumberMultivector[#, G["ComplexAlgebra"]] &]]["Flatten"], G]
 
 
-MultivectorFunction[f_, df_, v_Multivector, opts: OptionsPattern[]] := Module[{X, g, re, im, a, b, Y, w},
+multivectorFunction[f_, v_Multivector, opts: OptionsPattern[]] := Module[{X, g, re, im, a, b, Y, w},
     X = MultivectorMatrix[v, Sequence @@ FilterRules[{opts}, Options[MultivectorMatrix]]]["Components"];
     g = v["ComplexAlgebra"];
 
@@ -320,15 +320,15 @@ MultivectorFunction[f_, df_, v_Multivector, opts: OptionsPattern[]] := Module[{X
         If[ v["PseudoscalarSquare"] == 1,
             (* hyperbolic (split-complex) case *)
             With[{aDualRe = DualRe[re + im], bDualRe = DualRe[re - im], aDualEps = DualEps[re + im], bDualEps = DualEps[re - im]},
-                a = f[aDualRe] + Quiet[Check[df[aDualRe], 0]] . aDualEps Dual[0, 1];
-                b = f[bDualRe] + Quiet[Check[df[bDualRe], 0]] . bDualEps Dual[0, 1];
+                a = f[aDualRe] + Check[D[f[aDualRe + t aDualEps], t] /. t -> 0, 0] Dual[0, 1];
+                b = f[bDualRe] + Check[D[f[bDualRe + t bDualEps], t] /. t -> 0, 0] Dual[0, 1];
             ];
             Y = MapThread[Function[{x, y}, Multivector[{x, y}, GeometricAlgebra[1, 0]], HoldAllComplete], {a + b, a - b} / 2, 2],
 
             (* complex case *)
             With[{aDualRe = DualRe[re + I im], bDualRe = DualRe[re - I im], aDualEps = DualEps[re + I im], bDualEps = DualEps[re - I im]},
-                a = f[aDualRe] + Quiet[Check[df[aDualRe], 0]] . aDualEps Dual[0, 1];
-                b = f[bDualRe] + Quiet[Check[df[bDualRe], 0]] . bDualEps Dual[0, 1];
+                a = f[aDualRe] + Check[D[f[aDualRe + t aDualEps], t] /. t -> 0, 0] Dual[0, 1];
+                b = f[bDualRe] + Check[D[f[bDualRe + t bDualEps], t] /. t -> 0, 0] Dual[0, 1];
             ];
             Y = MapThread[Function[{x, y}, Multivector[{x, - I y}, GeometricAlgebra[0, 1]], HoldAllComplete], {a + b, a - b} / 2, 2]
         ],
@@ -345,9 +345,8 @@ MultivectorFunction[f_, df_, v_Multivector, opts: OptionsPattern[]] := Module[{X
 
 MultivectorFunction[f_, v_Multivector, opts: OptionsPattern[]] :=
     Check[
-        MultivectorFunction[
-            If[MatchQ[f, _Function] || numericFunctionQ[f], MatrixFunction[f, #] &, f],
-            If[MatchQ[f, _Function] || numericFunctionQ[f], With[{df = f'}, MatrixFunction[df, #] &], Identity],
+        multivectorFunction[
+            If[MatchQ[f, _Function] || numericFunctionQ[f], MatrixFunction[f, #] &, f[#] &],
             v, opts
         ],
         $Failed
