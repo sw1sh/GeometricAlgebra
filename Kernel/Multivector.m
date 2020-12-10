@@ -360,7 +360,7 @@ Multivector /: Wedge[vs__Multivector] := gradeFunctionContraction[Apply[Plus], v
 
 Multivector /: Vee[vs__Multivector] := LeftDual[Wedge @@ RightDual /@ {vs}]
 
-Multivector /: Cross[vs__Multivector] := Dual[Wedge[vs]]
+Multivector /: Cross[vs__Multivector] := LeftDual[Wedge[vs]]
 
 ScalarProduct[vs__Multivector] := Grade[GeometricProduct[vs], 0]
 
