@@ -309,12 +309,11 @@ MatrixMultivector[mat_MultivectorArray, G_GeometricAlgebra, opts: OptionsPattern
     ConvertGeometricAlgebra[MatrixMultivector[mat, opts][Map[NumberMultivector[#, G["ComplexAlgebra"]] &]]["Flatten"], G]
 
 
-MultivectorFunction[F_ /; MatchQ[F, _Function] || numericFunctionQ[F], v_Multivector, opts: OptionsPattern[]] := Module[{
-    f = MatrixFunction[F, #] &, X, g, re, im, a, b, Y, w
+MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[F], v_Multivector, opts: OptionsPattern[]] := Module[{
+    X, g, re, im, a, b, Y, w
 },
     X = MultivectorMatrix[v, Sequence @@ FilterRules[{opts}, Options[MultivectorMatrix]]]["Components"];
     g = v["ComplexAlgebra"];
-
     re = Map[#["Scalar"] &, X, {2}];
     im = Map[#["Pseudoscalar"] &, X, {2}];
 
@@ -324,9 +323,9 @@ MultivectorFunction[F_ /; MatchQ[F, _Function] || numericFunctionQ[F], v_Multive
             With[{
                 aDuals = DualCoordinates[re + im],
                 bDuals = DualCoordinates[re - im]},
-                With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals bDuals], {2}]]]},
-                    a = applyDualFunction[MatrixFunction[F, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, aDuals, {2}], 3 <-> 1], n];
-                    b = applyDualFunction[MatrixFunction[F, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], 3 <-> 1], n];
+                With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals, bDuals], {2}]]]},
+                    a = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, aDuals, {2}], {2, 3, 1}], n];
+                    b = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], {2, 3, 1}], n];
                 ]
             ];
             Y = MapThread[Function[{x, y}, Multivector[{x, y}, GeometricAlgebra[1, 0]], HoldAllComplete], {a + b, a - b} / 2, 2],
@@ -335,9 +334,9 @@ MultivectorFunction[F_ /; MatchQ[F, _Function] || numericFunctionQ[F], v_Multive
             With[{
                 aDuals = DualCoordinates[re + I im],
                 bDuals = DualCoordinates[re - I im]},
-                With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals bDuals], {2}]]]},
-                    a = applyDualFunction[MatrixFunction[F, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, aDuals, {2}], 3 <-> 1], n];
-                    b = applyDualFunction[MatrixFunction[F, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], 3 <-> 1], n];
+                With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals, bDuals], {2}]]]},
+                    a = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, aDuals, {2}], {2, 3, 1}], n];
+                    b = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], {2, 3, 1}], n];
                 ]
             ];
             Y = MapThread[Function[{x, y}, Multivector[{x, - I y}, GeometricAlgebra[0, 1]], HoldAllComplete], {a + b, a - b} / 2, 2]

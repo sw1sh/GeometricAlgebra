@@ -646,7 +646,7 @@ Multivector /: MakeBoxes[v: Multivector[opts: OptionsPattern[] /; multivectorOpt
                     Function[coord, Switch[coord,
                         1, InterpretationBox["\[InvisibleSpace]", coord],
                         -1, InterpretationBox["-", coord],
-                        _, If[Head[coord] === Multivector, RowBox[{"(", coord, ")"}], Parenthesize[coord, StandardForm, Times]]
+                        _, If[MatchQ[coord, _Multivector], RowBox[{"(", coord, ")"}], Parenthesize[coord, StandardForm, Times]]
                     ], HoldAllComplete] @@ holdCoord,
                     MakeBoxes @@ holdCoord
                 ], HoldRest]

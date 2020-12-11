@@ -48,39 +48,70 @@ Dual[x_, 0 ...] := x
 Dual[] := 0
 
 
-Dual /: Dual[d_Dual] := d
+Dual /: Dual[ds : PatternSequence[___, _Dual, ___]] :=
+    Total @ MapIndexed[Function[{x, i}, x ** Dual @@ UnitVector[Length[{ds}], First[i]], HoldAllComplete], {ds}]
 
 
-(*dualFunction[f_, arity_Integer, n_Integer] := dualFunction[f, arity, n] = With[{
-    es = Array[\[FormalE], n],
-    ps = Array[Times @@ (\[FormalE] @* First /@ Position[Reverse @ IntegerDigits[#, 2, n], 1]) &, 2 ^ n, 0],
-    coeffs = Array[Function[{i, j}, Slot[i * arity + j + 1]], {arity, 2 ^ n}, 0]
-},
-    Function[Dual @@ SortBy[
-        CoefficientRules[
-            Normal @ Series[
-                Apply[f, Total[ps #] & /@ coeffs],
-                Sequence @@ Map[{#, 0, 1} &, es]
+Dual /: GeometricProduct[xs__Dual]:= Module[{coords = DualCoordinates /@ {xs}, arity, n, ys, metric, indices},
+    arity = Length[{xs}];
+    n = Ceiling @ Log2[Max[Length /@ coords]];
+    ys = PadRight[#, 2 ^ n, 0] & /@ coords;
+    metric = Table[0, n];
+    indices = Subsets[Range[n], 2 ^ n];
+    Dual @@ GroupBy[
+        Flatten[
+            MapIndexed[
+                With[{x = Times @@ #1, r = multiplyIndices[Sequence @@ indices[[#2]], metric]}, {x r[[1]], r[[2]]}] &,
+                Outer[List, Sequence @@ ys],
+                {2}
             ],
-            es
+            arity - 1
         ],
-        FromDigits[Reverse @ #[[1]], 2] &
-    ][[All, 2]] // Evaluate]
-]*)
+        Last,
+        Total[#[[All, 1]]] &
+    ]
+]
+
+
+signature[perm_, es_] := ReplacePart[Table[1, 2 ^ Length[es]], FirstPosition[Subsets[es], Sort[perm]] -> Signature[perm]]
+
 
 dualFunction[f_, arity_Integer, n_Integer] := dualFunction[f, arity, n] = With[{
     es = Array[\[FormalE], n],
     ps = Array[Times @@ (\[FormalE] @* First /@ Position[Reverse @ IntegerDigits[#, 2, n], 1]) &, 2 ^ n, 0],
     coeffs = Array[Function[{i, j}, Slot[i * 2 ^ n + j + 1]], {arity, 2 ^ n}, 0]
 },
-    Function[Dual @@ Map[Function[{subset}, D[Apply[f, Total[ps #] & /@ coeffs], Sequence @@ subset] /. Alternatives @@ es -> 0 ], Subsets[es]] // Evaluate]
+    Dual @@ Map[
+        Function[subset,
+            Total @ Map[
+                Function[perm,
+                    Signature[perm] / (Length[subset] !) *
+                    D[Apply[f, Total[signature[perm, es] ps #] & /@ coeffs], Sequence @@ perm] /. Alternatives @@ es -> 0
+                ],
+                Permutations[subset]
+            ]
+        ],
+        Subsets[es]
+    ] // Evaluate // Function
 ]
+
 
 applyDualFunction[f_, coeffs_, n_Integer] := With[{
     es = Array[\[FormalE], n],
     ps = Array[Times @@ (\[FormalE] @* First /@ Position[Reverse @ IntegerDigits[#, 2, n], 1]) &, 2 ^ n, 0]
 },
-    Dual @@ Map[Function[{subset}, D[f[Total[ps coeffs]], Sequence @@ subset] /. Alternatives @@ es -> 0 ], Subsets[es]]
+    Dual @@ Map[
+        Function[subset,
+            Total @ Map[
+                Function[perm,
+                    Signature[perm] / (Length[subset] !) *
+                    D[f[Total[signature[perm, es] ps coeffs]], Sequence @@ perm] /. Alternatives @@ es -> 0
+                ],
+                Permutations[subset]
+            ]
+        ],
+        Subsets[es]
+    ]
 ]
 
 
