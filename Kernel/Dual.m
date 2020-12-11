@@ -86,10 +86,10 @@ dualFunction[f_, arity_Integer, n_Integer] := dualFunction[f, arity, n] = With[{
             Total @ Map[
                 Function[perm,
                     Signature[perm] / (Length[subset] !) *
-                    D[Apply[f, Total[signature[perm, es] ps #] & /@ coeffs], Sequence @@ perm] /. Alternatives @@ es -> 0
+                    D[Apply[f, Total[signature[perm, es] ps #] & /@ coeffs], Sequence @@ perm]
                 ],
                 Permutations[subset]
-            ]
+            ] /. Alternatives @@ es -> 0
         ],
         Subsets[es]
     ] // Evaluate // Function
@@ -123,7 +123,7 @@ applyDuals[f_, values_List] := Module[{
     arity = Length[values];
     n = Ceiling @ Log2[Max[Length /@ coords]];
     xs = PadRight[#, 2 ^ n, 0] & /@ coords;
-    dualFunction[f, arity, n] @@ Catenate @ xs
+    Quiet[dualFunction[f, arity, n] @@ Catenate @ xs, {General::infy, General::indet}] /. Indeterminate -> 0
   ]
 
 
@@ -145,12 +145,12 @@ MakeBoxes[d : HoldPattern[Dual[xs__]], fmt_] := Module[{
 },
     n = Ceiling @ Log2[Length @ {xs}];
     zboxes = Parenthesize[#, fmt, Plus] & /@ {xs};
-    displayBox = RowBox @ MapAt[Replace["-" | "+" -> Nothing], 1] @
+    displayBox = RowBox @ MapAt[Replace["+" -> Nothing], 1] @
         MapIndexed[Function[{x, i}, With[{k = i[[1]]},
             Splice @ {
                 If[ x === 0,
                     Nothing,
-                    Splice @ {If[negativeQ[x], Nothing, "+"], If[k > 1 && x === 1, Nothing, Slot[k]] ,
+                    Splice @ {If[negativeQ[x], Nothing, "+"], Which[k > 1 && x === 1, Nothing, k > 1 && x === - 1, "-", True, Slot[k]] ,
                     If[ k > 1,
                         If[ n > 1,
                             SubscriptBox[
@@ -160,7 +160,7 @@ MakeBoxes[d : HoldPattern[Dual[xs__]], fmt_] := Module[{
                             "\[Epsilon]"
                         ],
                         Nothing
-                    ]}
+                    ], "\[InvisibleSpace]"}
                 ]
             }
             ]],

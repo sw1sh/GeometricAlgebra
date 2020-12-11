@@ -303,16 +303,28 @@ A_GeometricAlgebra["MultiplicationSigns"] := A["MultiplicationSigns"] =
     Developer`ToPackedArray[A["MultiplicationTableWithSigns"][[All, All, 1]]]
 
 
+subsetOrders[n_Integer] := Length /@ Subsets[Range[n]]
+
+antiProductSigns[n_Integer, m_Integer] := With[{
+    leftOrders = subsetOrders @ n,
+    rightOrders = subsetOrders @ m
+},
+  Partition[(-1) ^ Times @@@ Tuples[{leftOrders, rightOrders}], 2 ^ m]
+]
+
+
 GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric product of multivectors v and w";
 
 GeometricProduct[v_Multivector, w_Multivector] := Module[{
     A = mergeGeometricAlgebra[v, w],
-    x, y,
+    x, y, z, signs,
     coords
 },
     x = Multivector[v, A]["Coordinates"];
     y = Multivector[w, A]["Coordinates"];
-    coords = A["MultiplicationSigns"] Outer[coordinateTimes, x, y];
+    z = DualCoordinates[y];
+    signs = antiProductSigns[A["Dimension"], Ceiling @ Log2 @ Max[Length /@ z]];
+    coords = A["MultiplicationSigns"] Outer[coordinateTimes[#1[[1]], Dual @@ (#2 Take[#1[[2]], Length @ #2])] &, Thread[x -> signs], z, 1];
     Multivector[
         SparseArray @ Normal @ GroupBy[
             Thread[Flatten[A["MultiplicationTable"]] -> Flatten[coords]],
@@ -646,7 +658,7 @@ Multivector /: MakeBoxes[v: Multivector[opts: OptionsPattern[] /; multivectorOpt
                     Function[coord, Switch[coord,
                         1, InterpretationBox["\[InvisibleSpace]", coord],
                         -1, InterpretationBox["-", coord],
-                        _, If[MatchQ[coord, _Multivector], RowBox[{"(", coord, ")"}], Parenthesize[coord, StandardForm, Times]]
+                        _, If[MatchQ[coord, _Multivector | _Dual], RowBox[{"(", ToBoxes @ coord, ")"}], Parenthesize[coord, StandardForm, Times]]
                     ], HoldAllComplete] @@ holdCoord,
                     MakeBoxes @@ holdCoord
                 ], HoldRest]
