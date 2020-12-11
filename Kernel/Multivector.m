@@ -58,6 +58,14 @@ Options[Multivector] = {
 };
 
 
+multivectorOptionsQ[opts : OptionsPattern[]] := With[{
+    A = Lookup[{opts}, "GeometricAlgebra"],
+    coords = Lookup[{opts}, "Coordinates"]
+},
+    MatchQ[A, _GeometricAlgebra] && VectorQ[coords] && Length[coords] == A["Order"]
+]
+
+
 $MultivectorProperties = {
     "GeometricAlgebra",
     "Coordinates",
@@ -90,16 +98,21 @@ $MultivectorProperties = {
 
 Multivector::truncCoord = "Coordinates are incompatible with `1`. Number of coordinates should be less than `2`. Truncating excessive coordinates.";
 
+
 Multivector[coords_ ? VectorQ, opts: OptionsPattern[]] :=
     With[{A = GeometricAlgebra @ OptionValue["GeometricAlgebra"]},
-        If[Length @ coords > A["Order"],
+        If[ Length @ coords > A["Order"],
             Message[Multivector::truncCoord, A, A["Order"]]
         ];
         Multivector["Coordinates" -> SparseArray[coords, A["Order"]], "GeometricAlgebra" -> A]
     ]
 
+
 Multivector[assoc_Association, opts: OptionsPattern[]] :=
     Multivector[Lookup[assoc, GeometricAlgebra[OptionValue["GeometricAlgebra"]]["Indices"], 0], opts]
+
+
+Multivector[x : Except[_Association | _ ? VectorQ | _ ? NumericQ | OptionsPattern[]], opts: OptionsPattern[]] := Multivector[{x}, opts]
 
 
 NumberMultivector[x_, A_GeometricAlgebra] :=
@@ -200,13 +213,18 @@ v_Multivector["ComplexCoordinates"] := Module[{
 ]
 
 
-Multivector[opts: OptionsPattern[]] := With[{
-    A = GeometricAlgebra[OptionValue["GeometricAlgebra"]]
+Multivector[opts: OptionsPattern[] /; ! multivectorOptionsQ[opts]] := With[{
+    coords = Lookup[{opts}, "Coordinates"],
+    A = GeometricAlgebra[Lookup[{opts}, "GeometricAlgebra"]]
 },
-    Multivector[
-        SparseArray[OptionValue["Coordinates"], A["Order"]],
-        A
-    ] /; MissingQ[Lookup[{opts}, "GeometricAlgebra"]] || Length[OptionValue["Coordinates"]] != A["Order"]
+    With[{
+        newOpts = Sequence[
+            "Coordinates" -> If[VectorQ[coords], If[Length[coords] != A["Order"], PadRight[coords, A["Order"]], coords], SparseArray[{}, A["Order"]]],
+            "GeometricAlgebra" -> A
+        ]
+    },
+        multivector[newOpts]
+    ]
 ]
 
 
@@ -420,12 +438,12 @@ Grade[v_Multivector, n_Integer] := mapCoordinates[# gradeIndices[v["GeometricAlg
 
 GradeList[v_Multivector] := Grade[v, #] & /@ Range[0, v["GeometricAlgebra"]["Dimension"]]
 
-Grade[coords_List, k_Integer, opts : OptionsPattern[Multivector]] := With[{
-        skipDimension = binomialSum[OptionValue["GeometricAlgebra"]["Dimension"], k - 1],
-        bladeDimension = Binomial[OptionValue["GeometricAlgebra"]["Dimension"], k]
+Grade[coords_List, k_Integer, A___] := With[{G = GeometricAlgebra[A]}, With[{
+        skipDimension = binomialSum[G["Dimension"], k - 1],
+        bladeDimension = Binomial[G["Dimension"], k]
     },
-    Multivector[SparseArray[MapIndexed[skipDimension + #2 -> #1 &, Take[coords, UpTo[bladeDimension]]], OptionValue["GeometricAlgebra"]["Order"]], opts]
-]
+    Multivector[SparseArray[MapIndexed[Function[{x, i}, skipDimension + i -> x, HoldAllComplete], Take[coords, UpTo[bladeDimension]]], G["Order"]], G]
+]]
 
 Grade[v_Multivector, "Even"] := Total[Grade[v, #] & /@ Range[0, v["GeometricAlgebra"]["Dimension"], 2]]
 
@@ -592,7 +610,7 @@ SetAttributes[holdSparseArray, {HoldAll}];
 holdSparseArray[a : SparseArray[{}, ___]] := a
 holdSparseArray[SparseArray[{xs__}, opts___]] := SparseArray[List @@ MapAt[Hold, Hold[xs], {All, 2}], opts]
 
-Multivector /: MakeBoxes[v: Multivector[opts: OptionsPattern[]], _] :=
+Multivector /: MakeBoxes[v: Multivector[opts: OptionsPattern[] /; multivectorOptionsQ[opts]], _] :=
     Module[{
         A = OptionValue[Multivector, {opts}, "GeometricAlgebra"],
         holdCoords, coords,
