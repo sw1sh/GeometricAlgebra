@@ -51,6 +51,8 @@ PackageScope["geometricIndexBoxes"]
 PackageScope["multiplyIndices"]
 PackageScope["$defaultMultivectorFormatFunction"]
 
+PackageScope["switchDualSide"]
+
 
 Options[Multivector] = {
     "GeometricAlgebra" -> GeometricAlgebra[3],
@@ -116,16 +118,16 @@ Multivector[x : Except[_Association | _ ? VectorQ | _ ? NumericQ | OptionsPatter
 
 
 NumberMultivector[x_, A_GeometricAlgebra] :=
-    Multivector[SparseArray[{1 -> Re[x], -1 -> If[A["PseudoscalarSquare"] == 1, I, 1] Im[x]}, A["Order"]], A]
+    Multivector[SparseArray[{1 -> Re[x], -1 -> If[A["PseudoscalarSquare"] == 1, I, 1] Im[x]}, A["ComplexOrder"]], A]
 
 NumberMultivector[v_Multivector, A_GeometricAlgebra] :=
-    Multivector[SparseArray[{1 -> v["Scalar"], -1 -> If[v["PseudoscalarSquare"] != A["PseudoscalarSquare"], I, 1] v["Pseudoscalar"]}, A["Order"]], A]
+    Multivector[SparseArray[{1 -> v["Scalar"], -1 -> If[v["PseudoscalarSquare"] != A["PseudoscalarSquare"], I, 1] v["Pseudoscalar"]}, A["ComplexOrder"]], A]
 
 NumberMultivector[x_] := NumberMultivector[x, GeometricAlgebra[0, 1]]
 
 
 MultivectorNumber[v_Multivector, A_GeometricAlgebra] :=
-    Multivector[SparseArray[{1 -> v["Scalar"], -1 -> v["Pseudoscalar"]}, A["Order"]], A]
+    Multivector[SparseArray[{1 -> v["Scalar"], -1 -> v["Pseudoscalar"]}, A["ComplexOrder"]], A]
 
 MultivectorNumber[v_Multivector] := MultivectorNumber[v, GeometricAlgebra @ If[v["PseudoscalarSquare"] == 1, {1, 0}, {0, 1}]]
 
@@ -145,9 +147,9 @@ Multivector[v_Multivector, args__] := Multivector[v, GeometricAlgebra[args]]
 
 Multivector[arg: Except[_Multivector], A_GeometricAlgebra] := Multivector[arg, "GeometricAlgebra" -> A]
 
-Multivector[arg_, p_Integer, q_Integer: 0] := Multivector[arg, GeometricAlgebra[p, q]]
+Multivector[arg_, p_Integer, q_Integer: 0, r_Integer: 0] := Multivector[arg, GeometricAlgebra[p, q, r]]
 
-Multivector[arg_, {p_Integer, q_Integer: 0}] := Multivector[arg, p, q]
+Multivector[arg_, {p_Integer, q_Integer: 0, r_Integer: 0}] := Multivector[arg, p, q, r]
 
 Multivector[] := Multivector[{}]
 
@@ -173,6 +175,8 @@ v_Multivector["Coordinate", n_Integer] := v["Coordinates"][[n]]
 
 v_Multivector["Coordinate", {ns__Integer}] := v["Coordinates"][[{ns}]]
 
+v_Multivector["CoordinateDimension"] := Max[DualDimension /@ v["Coordinates"]]
+
 
 v_Multivector["Association"] := Association @ Map[Apply[Function[{x, y}, v["Indices"][[First[x]]] -> y, HoldAllComplete]], Most @ ArrayRules[v["Coordinates"]]]
 
@@ -190,7 +194,7 @@ v_Multivector["Flatten"] := Inner[GeometricProduct, v["Coordinates"], v["Basis"]
 v_Multivector["Real"] := v[Re] + v["GeometricAlgebra"]["Pseudoscalar"] ** v[Im]
 
 
-v_Multivector["Numeric"] := If[v["Dimension"] > 0 && v["PseudoscalarSquare"] == 1,
+v_Multivector["Numeric"] := If[v["ComplexDimension"] > 0 && v["PseudoscalarSquare"] == 1,
     v["Scalar"] IdentityMatrix[2] +  v["Pseudoscalar"] Reverse @ IdentityMatrix[2],
     v["Scalar"] +  I v["Pseudoscalar"]
 ]
@@ -203,9 +207,9 @@ v_Multivector["ComplexCoordinates"] := Module[{
 
     If[ OddQ[A["Dimension"]],
         re = Lookup[v["Association"], A["ReIndices"], 0];
-        im = Lookup[(A["Pseudoscalar"] ** v)["Association"], A["ReIndices"], 0];
+        im = Lookup[(v ** A["Pseudoscalar"])["Association"], A["ReIndices"], 0];
 
-        re + A["PseudoscalarSquare"] A["Pseudoscalar"] ** im,
+        re + A["PseudoscalarSquare"] im ** A["Pseudoscalar"],
 
         (* Else *)
         v["Coordinates"]
@@ -283,7 +287,7 @@ Multivector /: Times[x: Except[_Multivector], v_Multivector] := mapCoordinates[x
 v_Multivector["Scalar"] := v["Coordinate", 1]
 
 
-v_Multivector["Pseudoscalar"] := If[v["Dimension"] > 0, v["Coordinate", -1], 0]
+v_Multivector["Pseudoscalar"] := If[v["ComplexDimension"] > 0, v["Coordinate", 2 ^ v["ComplexDimension"]], 0]
 
 
 A_GeometricAlgebra["Identity"] := identityMultivector[A]
@@ -303,28 +307,26 @@ A_GeometricAlgebra["MultiplicationSigns"] := A["MultiplicationSigns"] =
     Developer`ToPackedArray[A["MultiplicationTableWithSigns"][[All, All, 1]]]
 
 
-subsetOrders[n_Integer] := Length /@ Subsets[Range[n]]
-
-antiProductSigns[n_Integer, m_Integer] := With[{
-    leftOrders = subsetOrders @ n,
-    rightOrders = subsetOrders @ m
-},
-  Partition[(-1) ^ Times @@@ Tuples[{leftOrders, rightOrders}], 2 ^ m]
-]
+switchDualSide[v_Multivector] :=
+    Multivector[
+        MapThread[Function[{signs, x}, With[{coords = DualCoordinates[x]}, Dual @@ (Take[signs, Length[coords]] coords)], HoldAllComplete], {antiProductSigns[v["Dimension"], v["CoordinateDimension"]], Normal @ v["Coordinates"]}],
+        v["GeometricAlgebra"]
+    ]
 
 
 GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric product of multivectors v and w";
 
 GeometricProduct[v_Multivector, w_Multivector] := Module[{
     A = mergeGeometricAlgebra[v, w],
-    x, y, z, signs,
+    x, y,
     coords
 },
     x = Multivector[v, A]["Coordinates"];
     y = Multivector[w, A]["Coordinates"];
-    z = DualCoordinates[y];
-    signs = antiProductSigns[A["Dimension"], Ceiling @ Log2 @ Max[Length /@ z]];
-    coords = A["MultiplicationSigns"] Outer[coordinateTimes[#1[[1]], Dual @@ (#2 Take[#1[[2]], Length @ #2])] &, Thread[x -> signs], z, 1];
+    (*z = DualCoordinates[y];
+    signs = antiProductSigns[A["Dimension"], Max[DualDimension /@ z]];
+    coords = A["MultiplicationSigns"] Outer[coordinateTimes[#1[[1]], Dual @@ (#2 Take[#1[[2]], Length @ #2])] &, Thread[x -> signs], z, 1];*)
+    coords = A["MultiplicationSigns"] Outer[coordinateTimes, x, y];
     Multivector[
         SparseArray @ Normal @ GroupBy[
             Thread[Flatten[A["MultiplicationTable"]] -> Flatten[coords]],
@@ -351,9 +353,9 @@ Multivector /: Power[v_Multivector, n_Integer] := If[n < 0, Power[Inverse[v], -n
 (* Tensor product *)
 
 Multivector /: TensorProduct[v_Multivector, w_Multivector] := Module[{
-    p, q
+    p, q, r
 },
-    {p, q} = v["Signature"];
+    {p, q, r} = v["Signature"];
     v ** Multivector[
         KeyMap[# /. {i_ ? Positive :> i + p, i_ ? Negative :> i - q} &, w["Association"]],
         GeometricAlgebra[{p, q} + w["Signature"]]
@@ -467,7 +469,7 @@ v_Multivector["Grade", arg_] := Grade[v, arg]
 
 (* Special multivectors *)
 
-pseudoscalar[A_GeometricAlgebra] := Multivector[SparseArray[{A["Order"] -> 1}], A]
+pseudoscalar[A_GeometricAlgebra] := Multivector[SparseArray[{A["ComplexOrder"] -> 1}], A]
 
 pseudoscalar[v_Multivector] := pseudoscalar[v["GeometricAlgebra"]]
 
@@ -477,7 +479,7 @@ A_GeometricAlgebra["Pseudoscalar"] := pseudoscalar[A]
 
 
 A_GeometricAlgebra["Nilpotent", n_Integer] := With[{
-    i = Min[Min[A["Signature"]], Abs[n]]
+    i = Min[Min[A["ComplexSignature"]], Abs[n]]
 },
     Multivector[<|{i} -> 1 / 2, {-i} -> Sign[n] 1 / 2|>, A]
 ]
@@ -595,7 +597,7 @@ multiplyIndices[i_List, j_List, m_List] :=
 (* Boxes *)
 
 $defaultMultivectorFormatFunction = Function[index,
-    If[index === {},
+    If[ index === {},
         RowBox[{""}], (* don't display zero coefficient terms *)
         SubscriptBox["e", RowBox @ Riffle[If[Positive @ #, #, UnderscriptBox[Abs[#], "_"]] & /@ index, "\[InvisibleComma]"]]
     ]

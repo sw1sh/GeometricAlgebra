@@ -4,9 +4,13 @@ PackageExport["Dual"]
 PackageExport["DualCoordinates"]
 PackageExport["DualRe"]
 PackageExport["DualEps"]
+PackageExport["DualDimension"]
+PackageExport["DualBasis"]
 
 PackageScope["dualFunction"]
 PackageScope["applyDualFunction"]
+PackageScope["multivectorDuals"]
+PackageScope["antiProductSigns"]
 
 
 Needs["GeneralUtilities`"]
@@ -16,8 +20,8 @@ Attributes[Dual] = {Listable};
 
 
 
-Dual /: DualCoordinates[HoldPattern[Dual[xs__]], pad_ : False] :=
-    If[TrueQ[pad], With[{n = Ceiling @ Log2[Length @ {xs}]}, PadRight[{xs}, 2 ^ n]], {xs}]
+Dual /: DualCoordinates[HoldPattern[d : Dual[xs__]], pad_ : False] :=
+    If[TrueQ[pad], PadRight[{xs}, 2 ^ DualDimension[d]], {xs}]
 
 DualCoordinates[x : Except[_Dual], ___] := {x}
 
@@ -40,6 +44,14 @@ DualEps[Except[_Dual]] := 0
 Attributes[DualEps] = {Listable, NumericFunction};
 
 
+DualDimension[HoldPattern[Dual[xs__]]] := Ceiling @ Log2[Length @ {xs}]
+
+DualDimension[Except[_Dual]] := 1
+
+
+DualBasis[n_Integer] := Table[Dual @@ UnitVector[2 ^ n, i], {i, 2 ^ n}]
+
+
 Dual[x : Except[_Dual]] := Dual[x, 0]
 
 
@@ -52,30 +64,6 @@ Dual /: Dual[ds : PatternSequence[___, _Dual, ___]] :=
     Total @ MapIndexed[Function[{x, i}, x ** Dual @@ UnitVector[Length[{ds}], First[i]], HoldAllComplete], {ds}]
 
 
-Dual /: GeometricProduct[xs__Dual]:= Module[{coords = DualCoordinates /@ {xs}, arity, n, ys, metric, indices},
-    arity = Length[{xs}];
-    n = Ceiling @ Log2[Max[Length /@ coords]];
-    ys = PadRight[#, 2 ^ n, 0] & /@ coords;
-    metric = Table[0, n];
-    indices = Subsets[Range[n], 2 ^ n];
-    Dual @@ GroupBy[
-        Flatten[
-            MapIndexed[
-                With[{x = Times @@ #1, r = multiplyIndices[Sequence @@ indices[[#2]], metric]}, {x r[[1]], r[[2]]}] &,
-                Outer[List, Sequence @@ ys],
-                {2}
-            ],
-            arity - 1
-        ],
-        Last,
-        Total[#[[All, 1]]] &
-    ]
-]
-
-
-signature[perm_, es_] := ReplacePart[Table[1, 2 ^ Length[es]], FirstPosition[Subsets[es], Sort[perm]] -> Signature[perm]]
-
-
 dualFunction[f_, arity_Integer, n_Integer] := dualFunction[f, arity, n] = With[{
     es = Array[\[FormalE], n],
     ps = Array[Times @@ (\[FormalE] @* First /@ Position[Reverse @ IntegerDigits[#, 2, n], 1]) &, 2 ^ n, 0],
@@ -83,13 +71,7 @@ dualFunction[f_, arity_Integer, n_Integer] := dualFunction[f, arity, n] = With[{
 },
     Dual @@ Map[
         Function[subset,
-            Total @ Map[
-                Function[perm,
-                    Signature[perm] / (Length[subset] !) *
-                    D[Apply[f, Total[signature[perm, es] ps #] & /@ coeffs], Sequence @@ perm]
-                ],
-                Permutations[subset]
-            ] /. Alternatives @@ es -> 0
+            D[Apply[f, Total[ps #] & /@ coeffs], Sequence @@ subset] /. Alternatives @@ es -> 0
         ],
         Subsets[es]
     ] // Evaluate // Function
@@ -102,13 +84,7 @@ applyDualFunction[f_, coeffs_, n_Integer] := With[{
 },
     Dual @@ Map[
         Function[subset,
-            Total @ Map[
-                Function[perm,
-                    Signature[perm] / (Length[subset] !) *
-                    D[f[Total[signature[perm, es] ps coeffs]], Sequence @@ perm] /. Alternatives @@ es -> 0
-                ],
-                Permutations[subset]
-            ]
+            D[f[Total[ps coeffs]], Sequence @@ subset] /. Alternatives @@ es -> 0
         ],
         Subsets[es]
     ]
@@ -138,7 +114,26 @@ Dual[vs__Multivector] := With[{G = First @ MaximalBy[#["GeometricAlgebra"] & /@ 
 Dual[vs : PatternSequence[___, v_Multivector, ___]] := Apply[Dual, Multivector[#, v["GeometricAlgebra"]] & /@ {vs}]
 
 
+multivectorDuals[v_Multivector] := With[{n = v["CoordinateDimension"]},
+    Multivector[#, v["GeometricAlgebra"]] & /@ Transpose[PadRight[#, 2 ^ n] & /@ DualCoordinates /@ v["Coordinates"]]
+]
+
+multivectorDuals[x : Except[_Multivector]] := multivectorDuals[Multivector[x, 0]]
+
+
+subsetOrders[n_Integer] := Length /@ Subsets[Range[n]]
+
+antiProductSigns[n_Integer, m_Integer] := With[{
+    leftOrders = subsetOrders @ n,
+    rightOrders = subsetOrders @ m
+},
+  Partition[(-1) ^ Times @@@ Tuples[{leftOrders, rightOrders}], 2 ^ m]
+]
+
+
+
 negativeQ[x_] := NumericQ[x] && Quiet[Check[Negative[x], False]] || MatchQ[x, - _]
+
 
 MakeBoxes[d : HoldPattern[Dual[xs__]], fmt_] := Module[{
     n, zboxes, displayBox

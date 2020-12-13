@@ -11,15 +11,24 @@ PackageScope["higherGeometricAlgebra"]
 GeometricAlgebra::usage = "GeometricAlgebra[p, q] gives an underlying algebra object for use with Multivector";
 
 
-Options[GeometricAlgebra] = {"Signature" -> {3, 0}, "FormatIndex" -> Automatic};
+Options[GeometricAlgebra] = {"Signature" -> {3, 0, 0}, "FormatIndex" -> Automatic};
 
 
 $GeometricAlgebraProperties = {
-    "Signature",
     "FormatIndex",
 
+    "Signature",
+    "ComplexSignature",
+    "DualSignature",
+
+
     "Dimension",
+    "DualDimension",
+    "ComplexDimension",
+
     "Order",
+    "ComplexOrder",
+    "DualOrder",
 
     "Metric",
     "Indices",
@@ -41,8 +50,8 @@ $GeometricAlgebraProperties = {
 };
 
 
-GeometricAlgebra[p_Integer, q_Integer: 0, opts: OptionsPattern[GeometricAlgebra]] :=
-    GeometricAlgebra["Signature" -> {p, q}, Sequence @@ FilterRules[{opts}, Except["Signature"]]]
+GeometricAlgebra[p_Integer, q_Integer: 0, r_Integer: 0, opts: OptionsPattern[GeometricAlgebra]] :=
+    GeometricAlgebra["Signature" -> {p, q, r}, Sequence @@ FilterRules[{opts}, Except["Signature"]]]
 
 GeometricAlgebra[{p_Integer, q___Integer}, opts: OptionsPattern[GeometricAlgebra]] := GeometricAlgebra[p, q, opts]
 
@@ -53,38 +62,55 @@ GeometricAlgebra[] := OptionValue[Multivector, "GeometricAlgebra"] (* current de
 
 A_GeometricAlgebra[opt_String] /; KeyExistsQ[Options[GeometricAlgebra], opt] := Lookup[Join[Options[A], Options[GeometricAlgebra]], opt]
 
+A_GeometricAlgebra["ComplexSignature"] := A["Signature"][[;; 2]]
+
+A_GeometricAlgebra["DualSignature"] := A["Signature"][[-1]]
+
 A_GeometricAlgebra["Dimension"] := Total @ A["Signature"]
+
+A_GeometricAlgebra["ComplexDimension"] := Total @ A["ComplexSignature"]
+
+A_GeometricAlgebra["DualDimension"] := A["DualSignature"]
 
 A_GeometricAlgebra["Order"] := 2 ^ A["Dimension"]
 
+A_GeometricAlgebra["ComplexOrder"] := 2 ^ A["ComplexDimension"]
+
+A_GeometricAlgebra["DualOrder"] := 2 ^ A["DualDimension"]
+
 A_GeometricAlgebra["Metric"] :=
-    Module[{p, q},
-        {p, q} = A["Signature"];
-        Join[ConstantArray[1, p], ConstantArray[-1, q]]
+    Module[{p, q, r},
+        {p, q, r} = A["Signature"];
+        Join[ConstantArray[1, p], ConstantArray[0, r], ConstantArray[-1, q]]
     ]
 
-A_GeometricAlgebra["Indices"] := A["Indices"] = Subsets[Join[Range[A["Signature"][[1]]], Range[-A["Signature"][[2]], -1]]]
+A_GeometricAlgebra["Indices"] := A["Indices"] = Module[{
+    p, q, r
+},
+    {p, q, r} = A["Signature"];
+    Subsets[Join[Range[p], p + Range[r], Range[- q, -1]]]
+]
 
 
 A_GeometricAlgebra["PseudoscalarSquare"] := Module[{p, q},
-    {p, q} = A["Signature"];
+    {p, q} = A["ComplexSignature"];
     (- 1) ^ ((p - q) * (p - q - 1) / 2)
 ]
 
 
-A_GeometricAlgebra["ComplexAlgebra"] := With[{n = Floor[A["Dimension"] / 2]},
-    If[ OddQ[A["Dimension"]],
+A_GeometricAlgebra["ComplexAlgebra"] := With[{n = Floor[A["ComplexDimension"] / 2]},
+    If[ OddQ[A["ComplexDimension"]],
         If[ A["PseudoscalarSquare"] == 1,
             GeometricAlgebra[n + 1, n],
             GeometricAlgebra[n, n + 1]
         ],
-        GeometricAlgebra[n, n]
+        GeometricAlgebra[n, n, A["DualSignature"]]
     ]
 ]
 
 
 middleIndex[A_GeometricAlgebra] := Module[{p, q},
-    {p, q} = A["Signature"];
+    {p, q} = A["ComplexSignature"];
     Join[Range[p], Range[-q, -1]][[Ceiling[(p + q) / 2]]]
 ]
 
@@ -109,15 +135,15 @@ GeometricAlgebra /: MakeBoxes[A_GeometricAlgebra, StandardForm] := With[{
 (* Utility functions *)
 
 lowerGeometricAlgebra[G_GeometricAlgebra] := Module[{
-    p, q
+    p, q, r
 },
-    {p, q} = G["Signature"];
-    GeometricAlgebra @ If[p >= q, {Max[p - 1, 0], q}, {p, q - 1}]
+    {p, q, r} = G["Signature"];
+    GeometricAlgebra @ If[p >= q, {Max[p - 1, 0], q, r}, {p, q - 1, r}]
 ]
 
 higherGeometricAlgebra[G_GeometricAlgebra] := Module[{
-    p, q
+    p, q, r
 },
-    {p, q} = G["Signature"];
-    GeometricAlgebra @ If[p > q, {p, q + 1}, {p + 1, q}]
+    {p, q, r} = G["Signature"];
+    GeometricAlgebra @ If[p > q, {p, q + 1, r}, {p + 1, q, r}]
 ]
