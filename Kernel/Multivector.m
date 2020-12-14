@@ -44,6 +44,9 @@ PackageExport["Projection"]
 PackageExport["Rejection"]
 Rejection::usage = "Rejection[v, w] gives a rejection of multivector v on w";
 
+PackageExport["AntiDot"]
+
+PackageExport["AntiGeometricProduct"]
 
 PackageScope["zeroMultivector"]
 PackageScope["identityMultivector"]
@@ -85,6 +88,9 @@ $MultivectorProperties = {
     "Reverse",
     "Involute",
     "Conjugate",
+    "LeftComplement",
+    "RightComplement",
+    "DoubleComplement",
     "Squared",
     "Norm",
     "Normalized",
@@ -390,11 +396,15 @@ Multivector /: Dot[vs__Multivector] := gradeFunctionContraction[Abs @* Apply[Sub
 
 Multivector /: Wedge[vs__Multivector] := gradeFunctionContraction[Apply[Plus], vs]
 
-Multivector /: Vee[vs__Multivector] := LeftDual[Wedge @@ RightDual /@ {vs}]
+Multivector /: Vee[vs__Multivector] := Wedge[Sequence @@ Map[#["LeftComplement"] &, {vs}]]["RightComplement"]
 
-Multivector /: Cross[vs__Multivector] := LeftDual[Wedge[vs]]
+Multivector /: Cross[vs__Multivector] := Wedge[vs]["LeftComplement"]
 
 ScalarProduct[vs__Multivector] := Grade[GeometricProduct[vs], 0]
+
+AntiDot[vs__Multivector] := Dot[Sequence @@ Map[#["LeftComplement"] &, {vs}]]["RightComplement"]
+
+AntiGeometricProduct[vs__Multivector] := GeometricProduct[Sequence @@ Map[#["LeftComplement"] &, {vs}]]["RightComplement"]
 
 
 (* Inversions *)
@@ -405,9 +415,11 @@ reverseIndexCoordinate[A_GeometricAlgebra, indexPos_, x_] := Module[{newIndex, s
 ]
 
 v_Multivector["Reverse"] := Multivector[
-    Association[reverseIndexCoordinate[v["GeometricAlgebra"], #1, #2] & @@@ Most @ ArrayRules @ v["Coordinates"]], 
+    Association[reverseIndexCoordinate[v["GeometricAlgebra"], #1, #2] & @@@ Most @ ArrayRules @ v["Coordinates"]],
     v["GeometricAlgebra"]
 ]
+
+v_Multivector["AntiReverse"] := v["Reverse"]["DoubleComplement"]
 
 
 Involute[v_Multivector] := mapCoordinates[((-1) ^ # & @* Length /@ v["GeometricAlgebra"]["Indices"]) # &, v]
@@ -416,6 +428,29 @@ v_Multivector["Involute"] = Involute[v]
 
 
 v_Multivector["Conjugate"] = v["Involute"]["Reverse"]
+
+
+v_Multivector["LeftComplement"] := With[{i = Last @ v["Indices"]},
+     Multivector[
+        Association @ KeyValueMap[
+            Function[{j, x}, With[{k = DeleteCases[i, Alternatives @@ j]}, k -> permutationSignature[i, Join[k, j]] x], HoldAllComplete],
+            v["Association"]
+        ],
+        v["GeometricAlgebra"]
+    ]
+]
+
+v_Multivector["RightComplement"] := With[{i = Last @ v["Indices"]},
+     Multivector[
+        Association @ KeyValueMap[
+            Function[{j, x}, With[{k = DeleteCases[i, Alternatives @@ j]}, k -> permutationSignature[i, Join[j, k]] x], HoldAllComplete],
+            v["Association"]
+        ],
+        v["GeometricAlgebra"]
+    ]
+]
+
+v_Multivector["DoubleComplement"] := v["RightComplement"]["RightComplement"]
 
 
 Multivector /: Projection[v_Multivector, w_Multivector] := w ** (v . w)
@@ -469,7 +504,12 @@ v_Multivector["Grade", arg_] := Grade[v, arg]
 
 (* Special multivectors *)
 
-pseudoscalar[A_GeometricAlgebra] := Multivector[SparseArray[{A["ComplexOrder"] -> 1}], A]
+pseudoscalar[A_GeometricAlgebra] := Module[{
+    p, q
+},
+    {p, q} = A["ComplexSignature"];
+    Multivector[<|Join[Range[p], Range[- q, - 1]] -> 1|>, A]
+]
 
 pseudoscalar[v_Multivector] := pseudoscalar[v["GeometricAlgebra"]]
 

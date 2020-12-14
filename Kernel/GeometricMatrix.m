@@ -337,13 +337,25 @@ MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multive
     Check[
         If[ w["PseudoscalarSquare"] == 1,
             (* hyperbolic (split-complex) case *)
-            a = MatrixFunction[f, re + im];
-            b = MatrixFunction[f, re - im];
+            With[{
+                aDuals = DualCoordinates[re + im],
+                bDuals = DualCoordinates[re - im]},
+                With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals, bDuals], {2}]]]},
+                    a = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, aDuals, {2}], {2, 3, 1}], n];
+                    b = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], {2, 3, 1}], n];
+                ]
+            ];
             Y = MapThread[Function[{x, y}, Multivector[{x, y}, GeometricAlgebra[1, 0]], HoldAllComplete], {a + b, a - b} / 2, 2],
 
             (* complex case *)
-            a = MatrixFunction[f, re + I im];
-            b = MatrixFunction[f, re - I im];
+            With[{
+                aDuals = DualCoordinates[re + I im],
+                bDuals = DualCoordinates[re - I im]},
+                With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals, bDuals], {2}]]]},
+                    a = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, aDuals, {2}], {2, 3, 1}], n];
+                    b = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], {2, 3, 1}], n];
+                ]
+            ];
             Y = MapThread[Function[{x, y}, Multivector[{x, - I y}, GeometricAlgebra[0, 1]], HoldAllComplete], {a + b, a - b} / 2, 2]
         ],
         Return[$Failed]
@@ -372,7 +384,7 @@ DualComplexMultivector[v_Multivector] := Module[{
     G = GeometricAlgebra[p + r, q + r];
     Multivector[
         Association @ KeyValueMap[
-            If[AnyTrue[#1, GreaterThan[p]], <|#1 -> #2 / 2, (#1 /. i_Integer :> - q - (i - p) /; i > p) -> #2 / 2|>, #1 -> #2] &,
+            Function[{k, x}, If[AnyTrue[k, GreaterThan[p]], <|k -> x / 2, (#1 /. i_Integer :> - q - (i - p) /; i > p) -> x / 2|>, k -> x], HoldAllComplete],
             v["Association"]
         ],
         G
@@ -386,7 +398,7 @@ ComplexDualMultivector[v_Multivector, r_Integer : 1] := Module[{
     {p, q} = v["ComplexSignature"];
     G = GeometricAlgebra[p - r, q - r, r];
     Multivector[
-        Merge[KeyValueMap[(#1 /. i_Integer :> p - r - i /; i < - q + r) -> #2 &, v["Association"]], Total],
+        Merge[KeyValueMap[Function[{k, x}, (k /. i_Integer :> p - r - i /; i < - q + r) -> x, HoldAllComplete], v["Association"]], Total],
         G
     ]
 ]

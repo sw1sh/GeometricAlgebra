@@ -13,7 +13,7 @@ MultivectorBasis::usage = "MultivectorBasis[A, g] gives a list of multivectors f
 
 
 MultivectorBasis[A_GeometricAlgebra, n_Integer ? Positive | All] := With[{
-    from = If[n === All, 1, binomialSum[A["Dimension"], n - 1] + 1], 
+    from = If[n === All, 1, binomialSum[A["Dimension"], n - 1] + 1],
     to = If[n === All, A["Order"], binomialSum[A["Dimension"], n]]
     },
     Table[Multivector[SparseArray[{k -> 1}, A["Order"]], "GeometricAlgebra" -> A], {k, from, to}]
