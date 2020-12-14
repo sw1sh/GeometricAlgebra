@@ -340,7 +340,7 @@ MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multive
             With[{
                 aDuals = DualCoordinates[re + im],
                 bDuals = DualCoordinates[re - im]},
-                With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals, bDuals], {2}]]]},
+                With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals, bDuals, 3], {2}]]]},
                     a = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, aDuals, {2}], {2, 3, 1}], n];
                     b = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], {2, 3, 1}], n];
                 ]
@@ -351,7 +351,7 @@ MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multive
             With[{
                 aDuals = DualCoordinates[re + I im],
                 bDuals = DualCoordinates[re - I im]},
-                With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals, bDuals], {2}]]]},
+                With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals, bDuals, 3], {2}]]]},
                     a = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, aDuals, {2}], {2, 3, 1}], n];
                     b = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], {2, 3, 1}], n];
                 ]
@@ -384,7 +384,7 @@ DualComplexMultivector[v_Multivector] := Module[{
     G = GeometricAlgebra[p + r, q + r];
     Multivector[
         Association @ KeyValueMap[
-            Function[{k, x}, If[AnyTrue[k, GreaterThan[p]], <|k -> x / 2, (#1 /. i_Integer :> - q - (i - p) /; i > p) -> x / 2|>, k -> x], HoldAllComplete],
+            Function[{k, x}, If[AnyTrue[k, GreaterThan[p]], With[{l = k /. i_Integer /; i > p :> - q - (i - p)}, <|k -> x, l  -> x|>], k -> x], HoldAllComplete],
             v["Association"]
         ],
         G
