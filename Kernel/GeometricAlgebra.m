@@ -21,7 +21,6 @@ $GeometricAlgebraProperties = {
     "ComplexSignature",
     "DualSignature",
 
-
     "Dimension",
     "DualDimension",
     "ComplexDimension",
@@ -98,13 +97,13 @@ A_GeometricAlgebra["PseudoscalarSquare"] := Module[{p, q},
 ]
 
 
-A_GeometricAlgebra["ComplexAlgebra"] := With[{n = Floor[A["ComplexDimension"] / 2]},
+A_GeometricAlgebra["ComplexAlgebra"] := With[{n = Floor[A["ComplexDimension"] / 2], r = A["DualSignature"]},
     If[ OddQ[A["ComplexDimension"]],
         If[ A["PseudoscalarSquare"] == 1,
-            GeometricAlgebra[n + 1, n],
-            GeometricAlgebra[n, n + 1]
+            GeometricAlgebra[n + 1 + r, n + r],
+            GeometricAlgebra[n + r, n + 1 + r]
         ],
-        GeometricAlgebra[n, n, A["DualSignature"]]
+        GeometricAlgebra[n + r, n + r]
     ]
 ]
 

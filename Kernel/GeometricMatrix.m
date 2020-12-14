@@ -11,10 +11,11 @@ PackageExport["MatrixMultivector"]
 PackageExport["MultivectorBlock"]
 PackageExport["LeftKroneckerProduct"]
 PackageExport["RightKroneckerProduct"]
+PackageExport["DualComplexMultivector"]
+PackageExport["ComplexDualMultivector"]
 
 PackageScope["nilpotentBasis"]
 PackageScope["nilpotentMatrix"]
-PackageScope["antiNilpotentMatrix"]
 PackageScope["multivectorBasisMatrix"]
 
 
@@ -74,14 +75,14 @@ CanonicalGeometricAlgebra[G_GeometricAlgebra] := Module[{
 
 
 CanonicalGeometricIndices[G_GeometricAlgebra] := Module[{
-    n1, n2, p, q, n, complexIndices, newIndex
+    n1, n2, p, q, r, n, complexIndices, newIndex
 },
-    {p, q} = G["ComplexSignature"];
-    n = p + q;
+    {p, q, r} = G["Signature"];
+    n = p + q + r;
     n1 = Floor[n / 2];
     n2 = Ceiling[n / 2];
     If[ p > q,
-        complexIndices = Range[n1 + 1, p];
+        complexIndices = Range[n1 + 1, p + r];
         newIndex = Map[
             #1 -> {
                 With[{c = I ^ Count[#1, _ ? (MemberQ[complexIndices, #] &)]}, c],
@@ -107,9 +108,18 @@ Options[ConvertGeometricAlgebra] = {"Pseudoscalar" -> I};
 ConvertGeometricAlgebra[
     v_Multivector,
     G_GeometricAlgebra,
-    OptionsPattern[ConvertGeometricAlgebra]] := Module[{
+    opts: OptionsPattern[ConvertGeometricAlgebra]] := Module[{
         toCanonicConversion, fromCanonicConversion, canonicCoordinates, i
 },
+    If[v["ComplexDimension"] + 2 v["DualDimension"] != G["ComplexDimension"] + 2 G["DualDimension"],
+        Return[$Failed]
+    ];
+    If[G["DualDimension"] > v["DualDimension"],
+        Return[ConvertGeometricAlgebra[ComplexDualMultivector[v, G["DualDimension"] - v["DualDimension"]], G, opts]]
+    ];
+    If[G["DualDimension"] < v["DualDimension"],
+        Return[ConvertGeometricAlgebra[ComplexDualMultivector[DualComplexMultivector[v], G["DualDimension"]], G, opts]]
+    ];
     toCanonicConversion = CanonicalGeometricIndices[v["GeometricAlgebra"]];
     fromCanonicConversion = CanonicalGeometricIndices[G];
     canonicCoordinates = Association @ MapThread[Function[{x, y}, y[[2]] -> x y[[1]], HoldAllComplete],
@@ -157,9 +167,10 @@ fromRealCanonicalMultivector[v_Multivector, A_GeometricAlgebra] /;
 Options[MultivectorMatrix] = {"Basis" -> Automatic};
 
 MultivectorMatrix[v_Multivector, opts: OptionsPattern[]] := Module[{
-    p, q, n, X, M, mat
+    w, p, q, n, X, M, mat
 },
-    {p, q} = v["ComplexSignature"];
+    w = DualComplexMultivector[v];
+    {p, q} = w["ComplexSignature"];
 
     n = Floor[(p + q) / 2];
 
@@ -169,7 +180,7 @@ MultivectorMatrix[v_Multivector, opts: OptionsPattern[]] := Module[{
 
         multivectorBasisMatrix[OptionValue["Basis"]]
     ];
-    X = MultivectorNumber /@ ConvertGeometricAlgebra[v, v["ComplexAlgebra"]]["ComplexCoordinates"];
+    X = MultivectorNumber /@ ConvertGeometricAlgebra[w, w["ComplexAlgebra"]]["ComplexCoordinates"];
     mat = MultivectorArray[Partition[M . X, 2 ^ n]];
 
     mat
@@ -179,14 +190,15 @@ MultivectorMatrix[v_Multivector, opts: OptionsPattern[]] := Module[{
 Options[MultivectorBlock] = {}
 
 MultivectorBlock[v_Multivector, opts: OptionsPattern[]] := Module[{
-    G, n, p, q, r, X, F, B
+    w, G, n, p, q, X, F, B
 },
-    {p, q, r} = v["Signature"];
+    w = DualComplexMultivector[v];
+    {p, q} = w["ComplexSignature"];
 
     n = Floor[(p + q) / 2];
     If[ n > 0,
-        G = GeometricAlgebra @ MapThread[Max, {v["ComplexAlgebra"]["Signature"] - {1, 1, 0}, {0, 0}}];
-        X = MultivectorNumber[#, G["ComplexAlgebra"]] & /@ ConvertGeometricAlgebra[v, v["ComplexAlgebra"]]["ComplexCoordinates"];
+        G = GeometricAlgebra @ MapThread[Max, {w["ComplexAlgebra"]["Signature"] - {1, 1, 0}, {0, 0}}];
+        X = MultivectorNumber[#, G["ComplexAlgebra"]] & /@ ConvertGeometricAlgebra[w, w["ComplexAlgebra"]]["ComplexCoordinates"];
         F = Inverse @ nilpotentMatrix[n];
         B = nilpotentMatrix[n - 1];
         BlockMap[
@@ -195,7 +207,7 @@ MultivectorBlock[v_Multivector, opts: OptionsPattern[]] := Module[{
             {2 ^ (n - 1), 2 ^ (n - 1)}
         ],
 
-        {{v}}
+        {{w}}
     ] // MultivectorArray
 ]
 
@@ -307,19 +319,23 @@ MatrixMultivector[mat_MultivectorArray, opts: OptionsPattern[]] := Module[{
 ]
 
 MatrixMultivector[mat_MultivectorArray, G_GeometricAlgebra, opts: OptionsPattern[]] :=
-    ConvertGeometricAlgebra[MatrixMultivector[mat, opts][Map[NumberMultivector[#, G["ComplexAlgebra"]] &]]["Flatten"], G]
+    ComplexDualMultivector[
+        ConvertGeometricAlgebra[MatrixMultivector[mat, opts][Map[NumberMultivector[#, G["ComplexAlgebra"]] &]]["Flatten"], G["ComplexAlgebra"]],
+        G["DualDimension"]
+    ]
 
 
 MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multivector, opts: OptionsPattern[]] := Module[{
     X, g, re, im, a, b, Y, w
 },
-    X = MultivectorMatrix[v, Sequence @@ FilterRules[{opts}, Options[MultivectorMatrix]]]["Components"];
-    g = v["ComplexAlgebra"];
+    w = DualComplexMultivector[v];
+    X = MultivectorMatrix[w, Sequence @@ FilterRules[{opts}, Options[MultivectorMatrix]]]["Components"];
+    g = w["ComplexAlgebra"];
     re = Map[#["Scalar"] &, X, {2}];
     im = Map[#["Pseudoscalar"] &, X, {2}];
 
     Check[
-        If[ v["PseudoscalarSquare"] == 1,
+        If[ w["PseudoscalarSquare"] == 1,
             (* hyperbolic (split-complex) case *)
             a = MatrixFunction[f, re + im];
             b = MatrixFunction[f, re - im];
@@ -332,10 +348,14 @@ MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multive
         ],
         Return[$Failed]
     ];
-    w = MatrixMultivector[
-        MultivectorArray[Y],
-        g,
-        Sequence @@ FilterRules[{opts}, Options[MatrixMultivector]]
+    ;
+    w = ConvertGeometricAlgebra[
+        MatrixMultivector[
+            MultivectorArray[Y],
+            g,
+            Sequence @@ FilterRules[{opts}, Options[MatrixMultivector]]
+        ],
+        w["GeometricAlgebra"]
     ];
     ConvertGeometricAlgebra[w, v["GeometricAlgebra"]]
 ]
@@ -343,6 +363,33 @@ MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multive
 
 v_Multivector["Matrix"] := MultivectorMatrix[v]
 
+
+
+DualComplexMultivector[v_Multivector] := Module[{
+    p, q, r, G
+},
+    {p, q, r} = v["Signature"];
+    G = GeometricAlgebra[p + r, q + r];
+    Multivector[
+        Association @ KeyValueMap[
+            If[AnyTrue[#1, GreaterThan[p]], <|#1 -> #2 / 2, (#1 /. i_Integer :> - q - (i - p) /; i > p) -> #2 / 2|>, #1 -> #2] &,
+            v["Association"]
+        ],
+        G
+    ]
+]
+
+
+ComplexDualMultivector[v_Multivector, r_Integer : 1] := Module[{
+    p, q, G
+},
+    {p, q} = v["ComplexSignature"];
+    G = GeometricAlgebra[p - r, q - r, r];
+    Multivector[
+        Merge[KeyValueMap[(#1 /. i_Integer :> p - r - i /; i < - q + r) -> #2 &, v["Association"]], Total],
+        G
+    ]
+]
 
 (* Utility functions *)
 
