@@ -19,3 +19,4 @@ PacletInstall["https://github.com/sw1sh/GeometricAlgebra/releases/download/1.0/G
 * [Geometric Matricies](https://www.wolframcloud.com/obj/murzin.nikolay/Published/GeometricMatrix.nb)
 * [Matrix Gateway](https://www.wolframcloud.com/obj/murzin.nikolay/Published/MatrixGateway.nb)
 * [Pauli and Dirac algebras](https://www.wolframcloud.com/obj/murzin.nikolay/Published/PauliDirac.nb)
+* [Projective Geometry 3D](https://www.wolframcloud.com/obj/murzin.nikolay/Published/PGAExampleScene.nb)
