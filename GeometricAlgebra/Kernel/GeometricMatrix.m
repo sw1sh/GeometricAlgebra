@@ -1,4 +1,4 @@
-Package["GeometricAlgebra`"]
+Package["Wolfram`GeometricAlgebra`"]
 
 
 PackageExport["MultivectorFunction"]
@@ -197,7 +197,7 @@ MultivectorBlock[v_Multivector, opts: OptionsPattern[]] := Module[{
 
     n = Floor[(p + q) / 2];
     If[ n > 0,
-        G = GeometricAlgebra @ MapThread[Max, {w["ComplexAlgebra"]["Signature"] - {1, 1, 0}, {0, 0}}];
+        G = GeometricAlgebra @ MapThread[Max, {w["ComplexAlgebra"]["Signature"] - {1, 1, 0}, {0, 0, 0}}];
         X = MultivectorNumber[#, G["ComplexAlgebra"]] & /@ ConvertGeometricAlgebra[w, w["ComplexAlgebra"]]["ComplexCoordinates"];
         F = Inverse @ nilpotentMatrix[n];
         B = nilpotentMatrix[n - 1];
@@ -319,9 +319,12 @@ MatrixMultivector[mat_MultivectorArray, opts: OptionsPattern[]] := Module[{
 ]
 
 MatrixMultivector[mat_MultivectorArray, G_GeometricAlgebra, opts: OptionsPattern[]] :=
-    ComplexDualMultivector[
-        ConvertGeometricAlgebra[MatrixMultivector[mat, opts][Map[NumberMultivector[#, G["ComplexAlgebra"]] &]]["Flatten"], G["ComplexAlgebra"]],
-        G["DualDimension"]
+    ConvertGeometricAlgebra[
+        ComplexDualMultivector[
+            ConvertGeometricAlgebra[MatrixMultivector[mat, opts][Map[NumberMultivector[#, G["ComplexAlgebra"]] &]]["Flatten"], G["ComplexAlgebra"]],
+            G["DualDimension"]
+        ],
+        G
     ]
 
 
@@ -360,7 +363,6 @@ MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multive
         ],
         Return[$Failed]
     ];
-    ;
     w = ConvertGeometricAlgebra[
         MatrixMultivector[
             MultivectorArray[Y],

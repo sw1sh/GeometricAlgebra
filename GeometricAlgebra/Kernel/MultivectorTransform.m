@@ -1,4 +1,4 @@
-Package["GeometricAlgebra`"]
+Package["Wolfram`GeometricAlgebra`"]
 
 PackageExport["MultivectorTransform"]
 MultivectorTransform::usage = "MultivectorTransform[v, t] applies transformation t to multivector v";

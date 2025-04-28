@@ -1,4 +1,4 @@
-Package["GeometricAlgebra`"]
+Package["Wolfram`GeometricAlgebra`"]
 
 
 PackageExport["GeometricAlgebra"]
@@ -56,6 +56,8 @@ GeometricAlgebra[{p_Integer, q___Integer}, opts: OptionsPattern[GeometricAlgebra
 
 GeometricAlgebra[A_GeometricAlgebra, opts: OptionsPattern[]] :=
     GeometricAlgebra @@ Normal @ Merge[Join[FilterRules[{opts}, Options[GeometricAlgebra]], Options[A]], First]
+
+GeometricAlgebra[v_Multivector] := v["GeometricAlgebra"]
 
 GeometricAlgebra[] := OptionValue[Multivector, "GeometricAlgebra"] (* current default GeometricAlgebra *)
 
@@ -125,7 +127,7 @@ GeometricAlgebra /: Equal[gs__GeometricAlgebra]:= Equal @@ (#["Signature"] & /@ 
 
 
 GeometricAlgebra /: MakeBoxes[A_GeometricAlgebra, StandardForm] := With[{
-    box = SubscriptBox["\[DoubleStruckCapitalG]", RowBox @ Riffle[ToString /@ A["Signature"], ","]]
+    box = SubscriptBox["\[DoubleStruckCapitalG]", RowBox @ Riffle[ToString /@ MapAt[Replace[0 -> Nothing], A["Signature"], {3}], ","]]
 },
     InterpretationBox[box, A, Tooltip -> "Geometric Algebra"]
 ]

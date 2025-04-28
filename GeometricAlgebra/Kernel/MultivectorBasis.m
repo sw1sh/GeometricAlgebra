@@ -1,4 +1,4 @@
-Package["GeometricAlgebra`"]
+Package["Wolfram`GeometricAlgebra`"]
 
 
 PackageExport["MultivectorBasis"]

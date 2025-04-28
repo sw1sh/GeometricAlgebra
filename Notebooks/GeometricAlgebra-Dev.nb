@@ -1,0 +1,213 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Wolfram 14.3' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       154,          7]
+NotebookDataLength[      8571,        205]
+NotebookOptionsPosition[      2519,         71]
+NotebookOutlinePosition[      8172,        199]
+CellTagsIndexPosition[      8129,        196]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+
+Cell[CellGroupData[{
+Cell["Setup", "Section",ExpressionUUID->"a5871479-9bde-44a7-9577-9b1558e9c1ca"],
+
+Cell[CellGroupData[{
+
+Cell["Docked cell", "Subsubsection",
+ CellChangeTimes->{{3.950625871175961*^9, 
+  3.950625874603099*^9}},ExpressionUUID->"2fc665a5-83c8-4744-9566-\
+e0d5db4b797a"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"CurrentValue", "[", 
+    RowBox[{
+     RowBox[{"EvaluationNotebook", "[", "]"}], ",", "DockedCells"}], "]"}], "=", 
+   RowBox[{"{", "}"}]}], ";"}]], "Input",
+ CellLabel->"In[2]:=",ExpressionUUID->"a1258d61-29ed-487a-8638-7bcc2cd1b8a9"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+  "ResourceFunction", 
+   "[", "\"\<https://www.wolframcloud.com/obj/nikm/DeveloperDockedCell\>\"", 
+   "]"}], "[", 
+  RowBox[{"\"\<Wolfram`GeometricAlgebra`\>\"", ",", 
+   RowBox[{"FileNameJoin", "[", 
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{"NotebookDirectory", "[", "]"}], ",", "\"\<..\>\"", 
+      ",", "\"\<GeometricAlgebra\>\""}], "}"}], "]"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.9314200310687838`*^9, 3.931420033025861*^9}, {
+   3.931427065616996*^9, 3.9314270693806257`*^9}, {3.932117377469863*^9, 
+   3.932117388374032*^9}, {3.932719789450665*^9, 3.932719791844989*^9}, {
+   3.9327198884932613`*^9, 3.932719888689992*^9}, {3.936906755564693*^9, 
+   3.936906757256206*^9}, {3.937008408106406*^9, 3.937008414612863*^9}, 
+   3.937008511818685*^9, {3.937008679690181*^9, 3.9370086860776453`*^9}, 
+   3.9370088203643103`*^9, {3.93701059303347*^9, 3.937010676352943*^9}, {
+   3.939660751876206*^9, 3.9396607630353003`*^9}, {3.940480750519758*^9, 
+   3.940480750695005*^9}, {3.9548537477490473`*^9, 3.9548537553896103`*^9}, {
+   3.954854615866054*^9, 3.9548546170182037`*^9}},
+ CellLabel->"In[3]:=",ExpressionUUID->"636d7d51-0ccc-4a1f-9551-415bf400a69a"]
+}, Closed]]
+}, Open  ]],
+
+Cell["Playground", "Section",
+ CellChangeTimes->{{3.954853742744281*^9, 
+  3.954853744816257*^9}},ExpressionUUID->"8dc9f3cd-a8d2-4589-b927-\
+fb7410ce1054"]
+},
+WindowSize->{808, 911},
+WindowMargins->{{Automatic, 182}, {Automatic, 64}},
+DockedCells->{
+  Cell[
+   BoxData[
+    DynamicModuleBox[{
+     FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`name$$ = 
+      "GeometricAlgebra", 
+      FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`time$$ = 0, 
+      FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`paclet$$ = "", 
+      FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`url$$ = None, 
+      FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`progress$$ = "", 
+      FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`withProgress$$ = 
+      Function[Null, 
+        FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`progress$$ = 
+         ProgressIndicator[Appearance -> "Necklace"]; #; 
+        FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`progress$$ = 
+         Quantity[
+          FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`time$$, 
+           "Seconds"], HoldAll]}, 
+     TagBox[
+      GridBox[{{
+         TagBox[
+          GridBox[{{
+             ButtonBox[
+             "\"Reload code\"", ButtonFunction :> 
+              FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`\
+withProgress$$[
+               FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`time$$ = 
+                 First[
+                   AbsoluteTiming[
+                   Module[{
+                    FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`\
+pacletDirectory$}, Quiet[
+                    Unprotect[
+                    "Wolfram`GeometricAlgebra`" <> "`*", 
+                    "Wolfram`GeometricAlgebra`" <> "`**`*"]]; Quiet[
+                    ClearAll[
+                    "Wolfram`GeometricAlgebra`" <> "`*", 
+                    "Wolfram`GeometricAlgebra`" <> "`**`*"]]; 
+                    PacletDirectoryLoad[
+                    "/Users/swish/src/wolfram/GeometricAlgebra/Notebooks/../\
+GeometricAlgebra"]; Null]; Get["Wolfram`GeometricAlgebra`"]; Scan[
+                    Composition[Get, Echo], {}]; Null]]; Null], Method -> 
+              "Preemptive", Appearance -> Automatic, Evaluator -> 
+              Automatic]}, {
+             ButtonBox[
+             "\"Reload paclet\"", ButtonFunction :> 
+              FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`\
+withProgress$$[
+               FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`time$$ = 
+                 First[
+                   AbsoluteTiming[
+                   Get["PacletTools`"]; 
+                    FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`\
+paclet$$ = Enclose[
+                    Confirm[
+                    PacletTools`PacletBuild[
+                    "/Users/swish/src/wolfram/GeometricAlgebra/Notebooks/../\
+GeometricAlgebra"]]["PacletArchive"]]; 
+                    PacletInstall[
+                    FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`\
+paclet$$, ForceVersionInstall -> True]; Get["Wolfram`GeometricAlgebra`"]]]; 
+                Null], Method -> "Queued", Appearance -> Automatic, Evaluator -> 
+              Automatic]}}, GridBoxAlignment -> {"Columns" -> {{Left}}}, 
+           DefaultBaseStyle -> "Column", 
+           GridBoxItemSize -> {
+            "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}], "Column"], 
+         
+         DynamicBox[
+          ToBoxes[
+           Column[{
+             ClickToCopy[
+              FileNameTake[
+              FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`paclet$$], 
+              FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`paclet$$], 
+             FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`progress$$}]\
+, StandardForm], 
+          TrackedSymbols :> {
+           FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`paclet$$, 
+            FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`progress$$}],
+          ""}, {
+         ButtonBox[
+         "\"Upload paclet\"", ButtonFunction :> 
+          FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`withProgress$$[
+           FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`time$$ = First[
+               AbsoluteTiming[
+               CloudObject`Private`$allowInternetCheck = False; 
+                FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`url$$ = 
+                 URLShorten[
+                   CopyFile[
+                    File[
+                    FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`\
+paclet$$], 
+                    CloudObject[
+                    FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`name$\
+$ <> ".paclet", Permissions -> "Public"], OverwriteTarget -> True]]]]; Null], 
+          Method -> "Queued", Appearance -> Automatic, Evaluator -> 
+          Automatic], 
+         DynamicBox[
+          ToBoxes[$CloudUserID, StandardForm]], 
+         DynamicBox[
+          ToBoxes[
+           ClickToCopy[
+           FunctionRepository`$c76bba5c78aa458d80c6523e66030f11`url$$], 
+           StandardForm]]}}, GridBoxAlignment -> {"Columns" -> {{Left}}}, 
+       AutoDelete -> False, 
+       GridBoxItemSize -> {
+        "Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}}], "Grid"], 
+     DynamicModuleValues :> {}]]]},
+InputAliases->{
+ "gp" -> TemplateBox[{"\[Placeholder]", "\[Placeholder]"}, "GeometricProduct",
+     InterpretationFunction -> (RowBox[{#, "**", #2}]& ), 
+    DisplayFunction -> (RowBox[{#, " ", #2}]& )]},
+FrontEndVersion->"14.3 for Mac OS X ARM (64-bit) (April 17, 2025)",
+StyleDefinitions->"Default.nb",
+ExpressionUUID->"2fd5190a-24ef-4b40-a6f4-cb03c43da87a"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[CellGroupData[{
+Cell[576, 22, 79, 0, 66, "Section",ExpressionUUID->"a5871479-9bde-44a7-9577-9b1558e9c1ca"],
+Cell[CellGroupData[{
+Cell[680, 26, 162, 3, 43, "Subsubsection",ExpressionUUID->"2fc665a5-83c8-4744-9566-e0d5db4b797a"],
+Cell[845, 31, 282, 7, 29, "Input",ExpressionUUID->"a1258d61-29ed-487a-8638-7bcc2cd1b8a9"],
+Cell[1130, 40, 1203, 22, 70, "Input",ExpressionUUID->"636d7d51-0ccc-4a1f-9551-415bf400a69a"]
+}, Closed]]
+}, Open  ]],
+Cell[2360, 66, 155, 3, 66, "Section",ExpressionUUID->"8dc9f3cd-a8d2-4589-b927-fb7410ce1054"]
+}
+]
+*)
+

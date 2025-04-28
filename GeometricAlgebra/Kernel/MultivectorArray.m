@@ -1,4 +1,4 @@
-Package["GeometricAlgebra`"]
+Package["Wolfram`GeometricAlgebra`"]
 
 
 PackageExport["MultivectorArray"]
@@ -101,6 +101,10 @@ MultivectorArray /: GeometricProduct[va_MultivectorArray, vb_MultivectorArray] /
 
 GeometricProduct[va_MultivectorArray, vb_MultivectorArray] := GeometricProduct[expandDims[va, -1, 1], expandDims[vb, 1, 1]]
 
+GeometricProduct[x_, va_MultivectorArray] := x * va
+
+GeometricProduct[x_, va_MultivectorArray] := x * va
+
 
 GeometricProduct[vs__MultivectorArray] := Fold[GeometricProduct, {vs}]
 
@@ -110,6 +114,8 @@ MultivectorArray /: f_Symbol[va_MultivectorArray, vb_MultivectorArray] /; Member
 
 
 MultivectorArray /: Plus[vas__MultivectorArray] := Fold[Plus, {vas}]
+
+MultivectorArray /: NonCommutativeMultiply[left___, v_MultivectorArray, right___] := GeometricProduct[left, v, right]
 
 
 (* Transpose *)

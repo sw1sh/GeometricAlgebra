@@ -2,18 +2,19 @@
 
 ## Installation
 
-### Locally
 
+### Install from the paclet repository
 ```
-/build.wls; ./install.wls
-```
-
-### Or with released paclet link
-```
-PacletInstall["https://github.com/sw1sh/GeometricAlgebra/releases/download/1.0/GeometricAlgebra-1.0.paclet"]
+PacletInstall["Wolfram/GeometricAlgebra"]
 ```
 
-### Documentation
+### Or locally
+
+```
+PacletDirectoryLoad["path_to_paclet_directory"]
+```
+
+### Old examples
 
 * [Basic Examples](https://www.wolframcloud.com/obj/murzin.nikolay/Published/Tutorial.nb)
 * [Geometric Matricies](https://www.wolframcloud.com/obj/murzin.nikolay/Published/GeometricMatrix.nb)

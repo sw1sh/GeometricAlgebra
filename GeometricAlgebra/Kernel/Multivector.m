@@ -1,4 +1,4 @@
-Package["GeometricAlgebra`"]
+Package["Wolfram`GeometricAlgebra`"]
 
 
 PackageExport["Multivector"]
@@ -172,6 +172,8 @@ Multivector /: v_Multivector[opt: Alternatives @@ $GeometricAlgebraProperties] :
 Multivector /: Normal[v_Multivector] := Normal @ v["Coordinates"]
 
 
+_Multivector["Properties"] := $MultivectorProperties
+
 v_Multivector["Coordinates", n_Integer] := v["Coordinates"][[indexSpan[v, n]]]
 
 v_Multivector["Coordinates", {ns__Integer}] := Join @@ (v["Coordinates", #] & /@ {ns})
@@ -233,7 +235,7 @@ Multivector[opts: OptionsPattern[] /; ! multivectorOptionsQ[opts]] := With[{
             "GeometricAlgebra" -> A
         ]
     },
-        multivector[newOpts]
+        Multivector[newOpts]
     ]
 ]
 
@@ -345,7 +347,7 @@ GeometricProduct[v_Multivector, w_Multivector] := Module[{
 
 GeometricProduct[x_, y_] := x * y
 
-GeometricProduct[vs__Multivector] := Fold[GeometricProduct, {vs}]
+GeometricProduct[left___, v_Multivector, right___] := Fold[GeometricProduct, {left, v, right}]
 
 GeometricProduct[] := Multivector[{1}, {0, 0}]
 
@@ -354,6 +356,12 @@ Multivector /: Times[vs__Multivector] := GeometricProduct[vs]
 
 
 Multivector /: Power[v_Multivector, n_Integer] := If[n < 0, Power[Inverse[v], -n], Nest[# ** v &, identityMultivector[v], n]]
+
+
+Multivector /: Equal[vs__Multivector] := With[{A = GeometricAlgebra[First[{vs}]]}, Equal @@ Normal /@ Map[Multivector[#, A] &, {vs}]]
+
+
+SetAttributes[Multivector, NHoldRest]
 
 
 (* Tensor product *)
@@ -371,15 +379,7 @@ Multivector /: TensorProduct[v_Multivector, w_Multivector] := Module[{
 
 (* infix notation *)
 
-Unprotect[NonCommutativeMultiply]
-
-(x_? NumericQ) ** y_ := x y
-
-x_ ** (y_? NumericQ) := x y
-
-NonCommutativeMultiply[vs__] := Fold[GeometricProduct, {vs}]
-
-Protect[NonCommutativeMultiply]
+Multivector /: NonCommutativeMultiply[left : Except[_MultivectorArray] ..., v_Multivector, right : Except[_MultivectorArray] ...] := GeometricProduct[left, v, right]
 
 
 (* Product contractions *)
