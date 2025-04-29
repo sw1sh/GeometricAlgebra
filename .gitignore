@@ -2,3 +2,5 @@
 *.paclet
 
 .project
+
+GeometricAlgebra/build/
