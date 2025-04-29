@@ -4,6 +4,8 @@ Package["Wolfram`GeometricAlgebra`"]
 PackageExport["MultivectorArray"]
 MultivectorArray::usage = "MultivectorArray[vs, shape] gives a multi dimensional array of multivectors with specified shape";
 
+PackageExport["MultivectorArrayQ"]
+
 PackageExport["ShapeContract"]
 ShapeContract::usage = "Contract MultivectorArray indices";
 
@@ -12,6 +14,11 @@ PackageScope["mapComponents"]
 
 
 Options[MultivectorArray] = {"Components" -> {}, "Shape" -> {}}
+
+
+MultivectorArrayQ[HoldPattern[MultivectorArray[opts : OptionsPattern[]]]] := ArrayQ[OptionValue[{opts}, "Components"], _, MultivectorQ] && MatchQ[OptionValue[{opts}, "Shape"], {___Integer}]
+
+MultivectorArrayQ[___] := False
 
 
 $MultivectorArrayProperties = {
@@ -40,11 +47,11 @@ MultivectorArray[vs_, shape: {___Integer}] /; ArrayQ[vs, _, MatchQ[_Multivector]
 ]
 
 MultivectorArray[vs_, shape_] /; ArrayQ[vs] :=
-    MultivectorArray[Map[Multivector[{#}, {0}] &, vs, {ArrayDepth[vs]}], shape]
+    MultivectorArray[Map[If[MultivectorQ[#], #, Multivector[{#}, 0]] &, vs, {ArrayDepth[vs]}], Developer`ToList[shape]]
 
 MultivectorArray[vs_] /; ArrayQ[vs] := With[{dim = Dimensions[vs] /. 0 -> Nothing}, MultivectorArray[vs, dim * (-1) ^ Range[0, Length[dim] - 1]]]
 
-MultivectorArray[v_Multivector, shape_: {}] := MultivectorArray["Components" -> v, "Shape" -> {}]
+MultivectorArray[v_Multivector, shape_ : {}] := MultivectorArray["Components" -> v, "Shape" -> {}]
 
 
 va_MultivectorArray[opt_String] /; KeyExistsQ[Options[va], opt] := Lookup[Options[va], opt]
@@ -68,7 +75,9 @@ va_MultivectorArray[f_] := mapComponents[f, va]
 MultivectorArray /: Dimensions[va_MultivectorArray] := Abs @ va["Shape"]
 
 
-va_MultivectorArray["GeometricAlgebra"] := GeometricAlgebra[MapThread[Max, Flatten[Map[#["Signature"] &, va["Components"], {va["Rank"]}], 1]]]
+va_MultivectorArray["GeometricAlgebra"] := With[{r = va["Rank"]},
+    GeometricAlgebra[MapThread[Max, Flatten[Map[#["Signature"] &, va["Components"], {r}], r - 1]]]
+]
 
 MultivectorArray /: va_MultivectorArray[opt: Alternatives @@ $GeometricAlgebraProperties] := va["GeometricAlgebra"][opt]
 
@@ -101,21 +110,37 @@ MultivectorArray /: GeometricProduct[va_MultivectorArray, vb_MultivectorArray] /
 
 GeometricProduct[va_MultivectorArray, vb_MultivectorArray] := GeometricProduct[expandDims[va, -1, 1], expandDims[vb, 1, 1]]
 
-GeometricProduct[x_, va_MultivectorArray] := x * va
+GeometricProduct[x : Except[_Multivector], va_MultivectorArray] := x * va
 
-GeometricProduct[x_, va_MultivectorArray] := x * va
-
-
-GeometricProduct[vs__MultivectorArray] := Fold[GeometricProduct, {vs}]
+GeometricProduct[va_MultivectorArray, x : Except[_Multivector]] := x * va
 
 
-MultivectorArray /: f_Symbol[va_MultivectorArray, vb_MultivectorArray] /; MemberQ[Attributes[f], NumericFunction] && va["Shape"] == vb["Shape"] :=
+GeometricProduct[left___, va_MultivectorArray, right___] := Fold[GeometricProduct, {left, va, right}]
+
+
+MultivectorArray /: f_Symbol[va_MultivectorArray ? MultivectorArrayQ, vb_MultivectorArray ? MultivectorArrayQ] /; MemberQ[Attributes[f], NumericFunction] && va["Shape"] == vb["Shape"] :=
     MultivectorArray[f[va["Components"], vb["Components"]], va["Shape"]]
 
 
 MultivectorArray /: Plus[vas__MultivectorArray] := Fold[Plus, {vas}]
 
+
 MultivectorArray /: NonCommutativeMultiply[left___, v_MultivectorArray, right___] := GeometricProduct[left, v, right]
+
+
+MultivectorArray /: Equal[vas__MultivectorArray ? MultivectorArrayQ] := With[{shapes = Through[{vas}["Shape"]]},
+    Equal @@ shapes && Apply[And, MapThread[Equal, Normal /@ {vas}, {Length[First[shapes]]}], All]
+]
+
+MultivectorArray /: Normal[va_MultivectorArray ? MultivectorArrayQ] := va["Components"]
+
+MultivectorArray /: (f : Simplify | FullSimplify | ComplexExpand)[va_MultivectorArray, args___] := va[f[#, args] &]
+
+MultivectorArray /: N[va_MultivectorArray ? MultivectorArrayQ, args___] := With[{components = N[va["Components"], args]},
+    MultivectorArray[components, va["Shape"]] /; components =!= va["Components"]
+]
+
+SetAttributes[MultivectorArray, NHoldAll]
 
 
 (* Transpose *)

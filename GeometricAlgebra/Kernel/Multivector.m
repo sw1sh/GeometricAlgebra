@@ -4,6 +4,8 @@ Package["Wolfram`GeometricAlgebra`"]
 PackageExport["Multivector"]
 Multivector::usage = "Multivector[coords, ga] gives a multivector in GeometricAlgebra ga";
 
+PackageExport["MultivectorQ"]
+
 PackageExport["NumberMultivector"]
 NumberMultivector::usage = "NumberMultivector[x, ga] gives a multivector corresponding to a complex number x in geometric algebra ga";
 
@@ -64,11 +66,18 @@ Options[Multivector] = {
 
 
 multivectorOptionsQ[opts : OptionsPattern[]] := With[{
-    A = Lookup[{opts}, "GeometricAlgebra"],
-    coords = Lookup[{opts}, "Coordinates"]
+    A = OptionValue[{opts}, "GeometricAlgebra"],
+    coords = OptionValue[{opts}, "Coordinates"]
 },
-    MatchQ[A, _GeometricAlgebra] && VectorQ[coords] && Length[coords] == A["Order"]
+    GeometricAlgebraQ[A] && VectorQ[coords] && Length[coords] == A["Order"]
 ]
+
+multivectorOptionsQ[___] := False
+
+
+MultivectorQ[HoldPattern[Multivector[opts___]]] := multivectorOptionsQ[opts]
+
+MultivectorQ[___] := False
 
 
 $MultivectorProperties = {
@@ -358,10 +367,15 @@ Multivector /: Times[vs__Multivector] := GeometricProduct[vs]
 Multivector /: Power[v_Multivector, n_Integer] := If[n < 0, Power[Inverse[v], -n], Nest[# ** v &, identityMultivector[v], n]]
 
 
-Multivector /: Equal[vs__Multivector] := With[{A = GeometricAlgebra[First[{vs}]]}, Equal @@ Normal /@ Map[Multivector[#, A] &, {vs}]]
+Multivector /: Equal[vs__Multivector] := With[{A = GeometricAlgebra[First[{vs}]]}, And @@ MapThread[Equal, Normal /@ Map[Multivector[#, A] &, {vs}]]]
 
 
-SetAttributes[Multivector, NHoldRest]
+Multivector /: (f : Simplify | FullSimplify | ComplexExpand)[v_Multivector, args___] := v[Map[f[#, args] &]]
+
+
+Multivector /: N[v_Multivector ? MultivectorQ, args___] := With[{coords = N[v["Coordinates"], args]}, Multivector[coords, v["GeometricAlgebra"]] /; coords =!= v["Coordinates"]]
+
+SetAttributes[Multivector, NHoldAll]
 
 
 (* Tensor product *)
@@ -379,7 +393,7 @@ Multivector /: TensorProduct[v_Multivector, w_Multivector] := Module[{
 
 (* infix notation *)
 
-Multivector /: NonCommutativeMultiply[left : Except[_MultivectorArray] ..., v_Multivector, right : Except[_MultivectorArray] ...] := GeometricProduct[left, v, right]
+Multivector /: NonCommutativeMultiply[left___, v_Multivector, right___] := GeometricProduct[left, v, right]
 
 
 (* Product contractions *)
@@ -419,6 +433,8 @@ v_Multivector["Reverse"] := Multivector[
     v["GeometricAlgebra"]
 ]
 
+OverTilde[v_Multivector] ^:= v["Reverse"]
+
 v_Multivector["AntiReverse"] := v["Reverse"]["DoubleComplement"]
 
 
@@ -428,6 +444,8 @@ v_Multivector["Involute"] = Involute[v]
 
 
 v_Multivector["Conjugate"] = v["Involute"]["Reverse"]
+
+SuperStar[v_Multivector] ^:= v["Conjugate"]
 
 
 v_Multivector["LeftComplement"] := With[{i = Last @ v["Indices"]},
@@ -503,6 +521,9 @@ v_Multivector["Grade", arg_] := Grade[v, arg]
 
 
 (* Special multivectors *)
+
+A_GeometricAlgebra["Scalar"] := Multivector[1, A]
+
 
 pseudoscalar[A_GeometricAlgebra] := Module[{
     p, q
@@ -594,7 +615,7 @@ coordinateTimes[f: Function[x_], Function[y_]] := reduceFunctions[Function[f[y]]
 
 coordinateTimes[f_Function, y_] := f[y]
 
-coordinateTimes[x_, Function[y_]] := reduceFunctions[Function[x ** y]]
+coordinateTimes[x_, Function[y_]] := reduceFunctions[Function[GeometricProduct[x, y]]]
 
 coordinateTimes[v_, w_] := GeometricProduct[v, w]
 
@@ -638,17 +659,24 @@ multiplyIndices[i_List, j_List, m_List] :=
 
 $defaultMultivectorFormatFunction = Function[index,
     If[ index === {},
-        RowBox[{""}], (* don't display zero coefficient terms *)
-        SubscriptBox["e", RowBox @ Riffle[If[Positive @ #, #, UnderscriptBox[Abs[#], "_"]] & /@ index, "\[InvisibleComma]"]]
+        "", (* don't display zero coefficient terms *)
+        Subscript["e", Row @ Riffle[If[# > 0, #, UnderBar[Abs[#]]] & /@ index, "\[InvisibleComma]"]]
     ]
-];
+]
 
 
-geometricIndexBoxes[A_GeometricAlgebra, index_] :=
-    If[A["FormatIndex"] === Automatic,
-        $defaultMultivectorFormatFunction[index],
-        If[Head[A["FormatIndex"]] === Function, A["FormatIndex"][index],
-            index /. Append[A["FormatIndex"], _ -> $defaultMultivectorFormatFunction[index]]]]
+geometricIndexBoxes[A_GeometricAlgebra, index_] := With[{format = A["FormatIndex"]},
+    ToBoxes @ Switch[format,
+        Automatic,
+        $defaultMultivectorFormatFunction[index]
+        ,
+        _Function,
+        format[index]
+        ,
+        _,
+        index /. Append[_ -> $defaultMultivectorFormatFunction[index]] @ DeleteCases[Except[_Rule]] @ Developer`ToList[format]
+    ]
+]
 
 geometricIndexBoxes[index_] := geometricIndexBoxes[Lookup[Options[Multivector], "GeometricAlgebra"], index]
 

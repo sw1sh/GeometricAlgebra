@@ -327,18 +327,19 @@ MatrixMultivector[mat_MultivectorArray, G_GeometricAlgebra, opts: OptionsPattern
         G
     ]
 
+MatrixMultivector[mat_MultivectorArray, G : Except[OptionsPattern[]], opts: OptionsPattern[]] := MatrixMultivector[mat, GeometricAlgebra[G], opts]
 
-MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multivector, opts: OptionsPattern[]] := Module[{
-    X, g, re, im, a, b, Y, w
+
+MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], mat_ /; SquareMatrixQ[mat] && MatrixQ[mat, MultivectorQ], opts: OptionsPattern[]] := Block[{
+    re, im, a, b, result
 },
-    w = DualComplexMultivector[v];
-    X = MultivectorMatrix[w, Sequence @@ FilterRules[{opts}, Options[MultivectorMatrix]]]["Components"];
-    g = w["ComplexAlgebra"];
-    re = Map[#["Scalar"] &, X, {2}];
-    im = Map[#["Pseudoscalar"] &, X, {2}];
+    re = Map[#["Scalar"] &, mat, {2}];
+    im = Map[#["Pseudoscalar"] &, mat, {2}];
 
     Check[
-        If[ w["PseudoscalarSquare"] == 1,
+        Switch[
+            mat[[1, 1]]["PseudoscalarSquare"],
+            1,
             (* hyperbolic (split-complex) case *)
             With[{
                 aDuals = DualCoordinates[re + im],
@@ -348,8 +349,9 @@ MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multive
                     b = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], {2, 3, 1}], n];
                 ]
             ];
-            Y = MapThread[Function[{x, y}, Multivector[{x, y}, GeometricAlgebra[1, 0]], HoldAllComplete], {a + b, a - b} / 2, 2],
+            result = MapThread[Function[{x, y}, Multivector[{x, y}, GeometricAlgebra[1, 0]], HoldAllComplete], {a + b, a - b} / 2, 2],
 
+            -1,
             (* complex case *)
             With[{
                 aDuals = DualCoordinates[re + I im],
@@ -359,19 +361,31 @@ MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multive
                     b = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], {2, 3, 1}], n];
                 ]
             ];
-            Y = MapThread[Function[{x, y}, Multivector[{x, - I y}, GeometricAlgebra[0, 1]], HoldAllComplete], {a + b, a - b} / 2, 2]
+            result = MapThread[Function[{x, y}, Multivector[{x, - I y}, GeometricAlgebra[0, 1]], HoldAllComplete], {a + b, a - b} / 2, 2],
+
+            _,
+            Return[$Failed]
         ],
         Return[$Failed]
     ];
-    w = ConvertGeometricAlgebra[
-        MatrixMultivector[
-            MultivectorArray[Y],
-            g,
-            Sequence @@ FilterRules[{opts}, Options[MatrixMultivector]]
-        ],
-        w["GeometricAlgebra"]
-    ];
-    ConvertGeometricAlgebra[w, v["GeometricAlgebra"]]
+    MultivectorArray[result]
+]
+
+MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], va_MultivectorArray ? MultivectorArrayQ, opts: OptionsPattern[]] :=
+    MultivectorFunction[f, va["Components"], opts]
+
+MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multivector ? MultivectorQ, opts: OptionsPattern[]] := Enclose @ Block[{
+    w, x, y
+},
+    w = DualComplexMultivector[v];
+    x = Confirm @ MultivectorMatrix[w, FilterRules[{opts}, Options[MultivectorMatrix]]];
+
+    y = Confirm @ MultivectorFunction[f, x, opts];
+
+    ConvertGeometricAlgebra[
+        MatrixMultivector[y, w["ComplexAlgebra"], FilterRules[{opts}, Options[MatrixMultivector]]],
+        v["GeometricAlgebra"]
+    ]
 ]
 
 
@@ -429,7 +443,7 @@ nilpotentBasis[n_Integer] := Module[{A, u, Bt, G, i},
 ]
 
 
-multivectorBasisMatrix[arr_MultivectorArray, anti_ : False] := multivectorBasisMatrix[mat] = Module[{
+multivectorBasisMatrix[arr_MultivectorArray] := multivectorBasisMatrix[arr] = Module[{
     n, m, sa, s
 },
     n = Log2[arr["Dimension"]] / 2;

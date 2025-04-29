@@ -2,6 +2,7 @@ Package["Wolfram`GeometricAlgebra`"]
 
 
 PackageExport["GeometricAlgebra"]
+PackageExport["GeometricAlgebraQ"]
 
 PackageScope["$GeometricAlgebraProperties"]
 PackageScope["lowerGeometricAlgebra"]
@@ -11,10 +12,11 @@ PackageScope["higherGeometricAlgebra"]
 GeometricAlgebra::usage = "GeometricAlgebra[p, q] gives an underlying algebra object for use with Multivector";
 
 
-Options[GeometricAlgebra] = {"Signature" -> {3, 0, 0}, "FormatIndex" -> Automatic};
+Options[GeometricAlgebra] = {"Signature" -> {3, 0, 0}, "Format" -> Automatic, "FormatIndex" -> Automatic};
 
 
 $GeometricAlgebraProperties = {
+    "Format",
     "FormatIndex",
 
     "Signature",
@@ -47,6 +49,11 @@ $GeometricAlgebraProperties = {
     "Zero",
     "Identity"
 };
+
+
+GeometricAlgebraQ[HoldPattern[GeometricAlgebra[opts___]]] := MatchQ[OptionValue[{opts}, "Signature"], {Repeated[_Integer ? NonNegative, {3}]}]
+
+GeometricAlgebraQ[___] := False
 
 
 GeometricAlgebra[p_Integer, q_Integer: 0, r_Integer: 0, opts: OptionsPattern[GeometricAlgebra]] :=
@@ -126,10 +133,11 @@ GeometricAlgebra /: Equal[gs__GeometricAlgebra]:= Equal @@ (#["Signature"] & /@ 
 (* Boxes *)
 
 
-GeometricAlgebra /: MakeBoxes[A_GeometricAlgebra, StandardForm] := With[{
-    box = SubscriptBox["\[DoubleStruckCapitalG]", RowBox @ Riffle[ToString /@ MapAt[Replace[0 -> Nothing], A["Signature"], {3}], ","]]
+GeometricAlgebra /: MakeBoxes[A_GeometricAlgebra, form___] := With[{
+    box = Replace[A["Format"], Automatic :> SubscriptBox["\[DoubleStruckCapitalG]", RowBox @ Riffle[ToString /@ Replace[MapAt[Replace[0 -> Nothing], A["Signature"], {3}], {p_, 0} :> {p}], ","]]],
+    tooltip = RowBox[{"Geometric Algebra", ToBoxes[A["Signature"], form]}]
 },
-    InterpretationBox[box, A, Tooltip -> "Geometric Algebra"]
+    InterpretationBox[box, A, Tooltip -> tooltip]
 ]
 
 
