@@ -38,6 +38,12 @@ MultivectorBasis[args__] := MultivectorBasis[GeometricAlgebra[], args]
 MultivectorBasis[] := MultivectorBasis[All]
 
 
+A_GeometricAlgebra[] := Multivector[1, A]
+
+A_GeometricAlgebra[index_Integer] := Multivector[SparseArray[{{If[index >= 0, index + 1, 1 + Min[- index, A["Signature"][[2]]] + A["Signature"][[1]]]} -> 1}, A["Order"]], A]
+
+A_GeometricAlgebra[indices__Integer] := GeometricProduct @@ A /@ {indices}
+
 A_GeometricAlgebra["Basis", args___] := MultivectorBasis[A, args]
 
 A_GeometricAlgebra["PseudoBasis", args___] := A["Pseudoscalar"] ** # & /@ MultivectorBasis[A, args]
