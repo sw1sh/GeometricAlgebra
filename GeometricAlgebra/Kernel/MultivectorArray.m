@@ -134,7 +134,7 @@ MultivectorArray /: Equal[vas__MultivectorArray ? MultivectorArrayQ] := With[{sh
 
 MultivectorArray /: Normal[va_MultivectorArray ? MultivectorArrayQ] := va["Components"]
 
-MultivectorArray /: (f : Simplify | FullSimplify | ComplexExpand)[va_MultivectorArray, args___] := va[f[#, args] &]
+MultivectorArray /: (f : $ElementwiseFunction)[va_MultivectorArray, args___] := va[f[#, args] &]
 
 MultivectorArray /: N[va_MultivectorArray ? MultivectorArrayQ, args___] := With[{components = N[va["Components"], args]},
     MultivectorArray[components, va["Shape"]] /; components =!= va["Components"]

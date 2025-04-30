@@ -370,7 +370,7 @@ Multivector /: Power[v_Multivector, n_Integer] := If[n < 0, Power[Inverse[v], -n
 Multivector /: Equal[vs__Multivector] := With[{A = GeometricAlgebra[First[{vs}]]}, And @@ MapThread[Equal, Normal /@ Map[Multivector[#, A] &, {vs}]]]
 
 
-Multivector /: (f : Simplify | FullSimplify | ComplexExpand)[v_Multivector, args___] := v[Map[f[#, args] &]]
+Multivector /: (f : $ElementwiseFunction)[v_Multivector, args___] := v[Map[f[#, args] &]]
 
 
 Multivector /: N[v_Multivector ? MultivectorQ, args___] := With[{coords = N[v["Coordinates"], args]}, Multivector[coords, v["GeometricAlgebra"]] /; coords =!= v["Coordinates"]]
