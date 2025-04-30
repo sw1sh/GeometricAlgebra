@@ -2,6 +2,8 @@ Package["Wolfram`GeometricAlgebra`"]
 
 
 PackageExport["MultivectorFunction"]
+PackageExport["MultivectorExp"]
+PackageExport["MultivectorLog"]
 PackageExport["CanonicalGeometricAlgebra"]
 PackageExport["CanonicalGeometricIndices"]
 PackageExport["ConvertGeometricAlgebra"]
@@ -391,6 +393,12 @@ MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multive
 
 v_Multivector["Matrix"] := MultivectorMatrix[v]
 
+
+MultivectorExp[v_Multivector, opts: OptionsPattern[]] := MultivectorFunction[Exp, v, opts]
+
+MultivectorLog[v_Multivector, opts: OptionsPattern[]] := MultivectorFunction[Log, v, opts]
+
+(f : Eigenvalues | Eigenvectors | Eigensystem)[v_Multivector, opts: OptionsPattern[]] ^:= f[MultivectorMatrix[v, opts]["Numeric"]]
 
 
 DualComplexMultivector[v_Multivector] := Module[{
