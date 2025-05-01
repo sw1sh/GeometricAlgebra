@@ -398,7 +398,7 @@ MultivectorExp[v_Multivector, opts: OptionsPattern[]] := MultivectorFunction[Exp
 
 MultivectorLog[v_Multivector, opts: OptionsPattern[]] := MultivectorFunction[Log, v, opts]
 
-(f : Eigenvalues | Eigenvectors | Eigensystem)[v_Multivector, opts: OptionsPattern[]] ^:= f[MultivectorMatrix[v, opts]["Numeric"]]
+Multivector /: (f : Eigenvalues | Eigenvectors | Eigensystem)[v_Multivector, opts: OptionsPattern[]] := f[MultivectorMatrix[v, opts]["Numeric"]]
 
 
 DualComplexMultivector[v_Multivector] := Module[{

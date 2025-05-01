@@ -3,12 +3,12 @@
 PacletObject[
   <|
     "Name" -> "Wolfram/GeometricAlgebra",
-    "Description" -> "A set of tools for doing geometric algebra",
+    "Description" -> "Computational tools for Geometric Algebras",
     "Creator" -> "Nikolay Murzin",
     "URL" -> "https://github.com/sw1sh/GeometricAlgebra",
     "License" -> "MIT",
     "PublisherID" -> "Wolfram",
-    "Version" -> "1.0",
+    "Version" -> "1.1",
     "WolframVersion" -> "14.2+",
     "PrimaryContext" -> "Wolfram`GeometricAlgebra`",
     "Extensions" -> {
