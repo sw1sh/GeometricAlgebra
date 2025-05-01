@@ -468,6 +468,12 @@ v_Multivector["RightComplement"] := With[{i = Last @ v["Indices"]},
     ]
 ]
 
+
+Multivector /: UnderBar[v_Multivector] := v["LeftComplement"]
+
+Multivector /: OverBar[v_Multivector] := v["RightComplement"]
+
+
 v_Multivector["DoubleComplement"] := v["RightComplement"]["RightComplement"]
 
 
@@ -568,14 +574,22 @@ v_Multivector["Dual"] := LeftDual[v]
 
 v_Multivector["Norm"] := Sqrt[v ^ 2]
 
+Multivector /: Norm[v_Multivector] := v["Det"]
+
 
 v_Multivector["Normalize"] := v / v["Norm"]
+
+Multivector /: Normalize[v_Multivector] := v["Det"]
 
 
 v_Multivector["Tr"] := v + v["Conjugate"]
 
+Multivector /: Tr[v_Multivector] := v["Det"]
+
 
 v_Multivector["Det"] := v ** v["Conjugate"]
+
+Multivector /: Det[v_Multivector] := v["Det"]
 
 
 (* Utility functions *)
