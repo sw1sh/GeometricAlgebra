@@ -168,6 +168,14 @@ Multivector[arg_, {p_Integer, q_Integer: 0, r_Integer: 0}] := Multivector[arg, p
 
 Multivector[] := Multivector[{}]
 
+
+v_Multivector[key : {___Integer}] := #2 Lookup[v["Association"], Key[#1], 0] & @@ orderIndexWithSign[normalIndex[key, v["Signature"]], v["Dimension"]]
+
+v_Multivector[key___Integer] := v[{key}]
+
+v_Multivector[keys : {{___Integer} ..}] := v /@ keys
+
+
 v_Multivector[f_] := mapCoordinates[f, v]
 
 Multivector /: f_Symbol[v_Multivector] /; MemberQ[Attributes[f], NumericFunction] := v[f]
@@ -191,6 +199,9 @@ v_Multivector["Coordinates", {ns__Integer}] := Join @@ (v["Coordinates", #] & /@
 v_Multivector["Coordinate", n_Integer] := v["Coordinates"][[n]]
 
 v_Multivector["Coordinate", {ns__Integer}] := v["Coordinates"][[{ns}]]
+
+Multivector /: Part[v_Multivector, keys___] := v["Coordinate", keys]
+
 
 v_Multivector["CoordinateDimension"] := Max[DualDimension /@ v["Coordinates"]]
 
@@ -729,7 +740,7 @@ Multivector /: MakeBoxes[v: Multivector[opts: OptionsPattern[] /; multivectorOpt
         True,
         First @ MapAt[Hold, holdCoords, {1, All}] (* hold elements of a List *)
     ];
-    rules = Cases[ArrayRules[coords], ({i_Integer} -> c_) /; c =!= Hold[0] :> {i, c}];
+    rules = Cases[ArrayRules[coords], ({i_Integer} -> c_) /; If[c != Hold[0], True, False, True] :> {i, c}];
     optBoxes = ToBoxes /@ FilterRules[{opts}, Except["Coordinates"]];
     If[Length[optBoxes] > 0,
         optBoxes = Riffle[optBoxes, ",", {1, 2 Length[optBoxes], 2}]

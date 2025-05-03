@@ -7,6 +7,8 @@ PackageExport["MultivectorBasis"]
 PackageScope["binomialSum"]
 PackageScope["gradeIndices"]
 PackageScope["indexSpan"]
+PackageScope["normalIndex"]
+PackageScope["positiveIndex"]
 
 
 MultivectorBasis::usage = "MultivectorBasis[A, g] gives a list of multivectors from canonical basis of geometric algebra A with grade g";
@@ -40,9 +42,13 @@ MultivectorBasis[] := MultivectorBasis[All]
 
 A_GeometricAlgebra[] := Multivector[1, A]
 
-A_GeometricAlgebra[index_Integer] := Multivector[SparseArray[{{If[index >= 0, index + 1, 1 + Min[- index, A["Signature"][[2]]] + A["Signature"][[1]]]} -> 1}, A["Order"]], A]
+A_GeometricAlgebra[index_Integer] := Multivector[SparseArray[{{positiveIndex[index, A["Signature"]]} -> 1}, A["Order"]], A]
 
 A_GeometricAlgebra[indices__Integer] := GeometricProduct @@ A /@ {indices}
+
+A_GeometricAlgebra[indices : {___Integer}] := A @@ indices
+
+A_GeometricAlgebra[indices : {{___Integer} ...}] := A @@@ indices
 
 A_GeometricAlgebra["Basis", args___] := MultivectorBasis[A, args]
 
@@ -64,3 +70,14 @@ indexSpan[v_Multivector, n_Integer] :=
     binomialSum[v["GeometricAlgebra"]["Dimension"], n - 1] + 1 ;; binomialSum[v["GeometricAlgebra"]["Dimension"], n]
 
 indexSpan[_Multivector, All] := All
+
+
+positiveIndex[index_Integer, {p_, q_, _}] := 1 + If[index >= 0, index, Min[- index, q] + p]
+
+positiveIndex[indices : {___Integer}, signature_] := positiveIndex[#, signature] & /@ indices
+
+
+normalIndex[index_Integer, {p_, q_, r_}] := If[index < 0, Max[index, - q], If[index > p + r, Max[p + r - index, - q], Min[index, p + r]]]
+
+normalIndex[indices : {___Integer}, signature_] := normalIndex[#, signature] & /@ indices
+
