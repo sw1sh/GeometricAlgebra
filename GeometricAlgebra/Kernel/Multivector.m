@@ -248,6 +248,8 @@ Multivector[opts: OptionsPattern[] /; ! multivectorOptionsQ[opts]] := With[{
     ]
 ]
 
+v_Multivector /; System`Private`HoldNotValidQ[v] && MultivectorQ[Unevaluated[v]] := System`Private`SetNoEntry[System`Private`HoldSetValid[v]]
+
 
 (* Coersion *)
 

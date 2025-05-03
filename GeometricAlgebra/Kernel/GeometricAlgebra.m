@@ -130,6 +130,9 @@ A_GeometricAlgebra["ImIndexSigns"] := With[{i = Last @ A["Indices"]}, Rule @@ Re
 GeometricAlgebra /: Equal[gs__GeometricAlgebra]:= Equal @@ (#["Signature"] & /@ {gs})
 
 
+A_GeometricAlgebra /; System`Private`HoldNotValidQ[A] && GeometricAlgebraQ[Unevaluated[A]] := System`Private`SetNoEntry[System`Private`HoldSetValid[A]]
+
+
 (* Boxes *)
 
 

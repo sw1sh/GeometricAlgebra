@@ -142,6 +142,8 @@ MultivectorArray /: N[va_MultivectorArray ? MultivectorArrayQ, args___] := With[
 
 SetAttributes[MultivectorArray, NHoldAll]
 
+va_MultivectorArray /; System`Private`HoldNotValidQ[va] && MultivectorArrayQ[Unevaluated[va]] := System`Private`SetNoEntry[System`Private`HoldSetValid[va]]
+
 
 (* Transpose *)
 
