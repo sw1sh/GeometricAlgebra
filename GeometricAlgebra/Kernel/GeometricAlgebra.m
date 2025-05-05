@@ -12,7 +12,7 @@ PackageScope["higherGeometricAlgebra"]
 GeometricAlgebra::usage = "GeometricAlgebra[p, q] gives an underlying algebra object for use with Multivector";
 
 
-Options[GeometricAlgebra] = {"Signature" -> {3, 0, 0}, "Format" -> Automatic, "FormatIndex" -> Automatic};
+Options[GeometricAlgebra] = {"Signature" -> {3, 0, 0}, "Metric" -> Automatic, "Format" -> Automatic, "FormatIndex" -> Automatic}
 
 
 $GeometricAlgebraProperties = {
@@ -32,6 +32,7 @@ $GeometricAlgebraProperties = {
     "DualOrder",
 
     "Metric",
+    "MatricSignature",
     "Indices",
     "ReIndices",
     "ImIndexSigns",
@@ -40,8 +41,6 @@ $GeometricAlgebraProperties = {
     "PseudoBasis",
 
     "MultiplicationTable",
-    "MultiplicationSigns",
-    "MultiplicationTableWithSigns",
 
     "PseudoscalarSquare",
     "ComplexAlgebra",
@@ -51,24 +50,43 @@ $GeometricAlgebraProperties = {
 };
 
 
-GeometricAlgebraQ[HoldPattern[GeometricAlgebra[opts___]]] := MatchQ[OptionValue[{opts}, "Signature"], {Repeated[_Integer ? NonNegative, {3}]}]
+geometricAlgebraQ[HoldPattern[GeometricAlgebra[data_Association ? AssociationQ]]] :=
+    MatchQ[data, KeyValuePattern["Signature" -> {Repeated[_Integer ? NonNegative, {3}]}]];
+
+geometricAlgebraQ[___] := False
+
+
+GeometricAlgebraQ[A_GeometricAlgebra] := System`Private`HoldValidQ[A] || geometricAlgebraQ[Unevaluated[A]]
 
 GeometricAlgebraQ[___] := False
 
 
-GeometricAlgebra[p_Integer, q_Integer: 0, r_Integer: 0, opts: OptionsPattern[GeometricAlgebra]] :=
-    GeometricAlgebra["Signature" -> {p, q, r}, Sequence @@ FilterRules[{opts}, Except["Signature"]]]
+GeometricAlgebra[p_Integer, q_Integer: 0, r_Integer: 0, opts: OptionsPattern[]] :=
+    GeometricAlgebra["Signature" -> {p, q, r}, opts]
 
-GeometricAlgebra[{p_Integer, q___Integer}, opts: OptionsPattern[GeometricAlgebra]] := GeometricAlgebra[p, q, opts]
+GeometricAlgebra[{p_Integer, q___Integer}, opts: OptionsPattern[]] := GeometricAlgebra[p, q, opts]
 
 GeometricAlgebra[A_GeometricAlgebra, opts: OptionsPattern[]] :=
-    GeometricAlgebra @@ Normal @ Merge[Join[FilterRules[{opts}, Options[GeometricAlgebra]], Options[A]], First]
+    GeometricAlgebra[Merge[Join[FilterRules[{opts}, Options[GeometricAlgebra]], Options[A]], First]]
 
 GeometricAlgebra[v_Multivector] := v["GeometricAlgebra"]
 
 GeometricAlgebra[] := OptionValue[Multivector, "GeometricAlgebra"] (* current default GeometricAlgebra *)
 
-A_GeometricAlgebra[opt_String] /; KeyExistsQ[Options[GeometricAlgebra], opt] := Lookup[Join[Options[A], Options[GeometricAlgebra]], opt]
+GeometricAlgebra[opts : OptionsPattern[]] := GeometricAlgebra[Association[opts]]
+
+GeometricAlgebra /: HoldPattern[Options[GeometricAlgebra[data_] ? GeometricAlgebraQ]] := Normal[data]
+
+GeometricAlgebra /: HoldPattern[Options[GeometricAlgebra[data_] ? GeometricAlgebraQ, filter_]] := FilterRules[Normal[data], filter]
+
+A_GeometricAlgebra[opt_String] /; KeyExistsQ[Options[GeometricAlgebra], opt] := With[{value = OptionValue[{Options[A], Options[GeometricAlgebra]}, opt]},
+    Switch[opt,
+        "Metric",
+        Replace[value, Automatic :> If[A["Dimension"] == 0, {{}}, DiagonalMatrix[A["MetricSignature"]]]],
+        _,
+        value
+    ]
+]
 
 A_GeometricAlgebra["ComplexSignature"] := A["Signature"][[;; 2]]
 
@@ -86,11 +104,13 @@ A_GeometricAlgebra["ComplexOrder"] := 2 ^ A["ComplexDimension"]
 
 A_GeometricAlgebra["DualOrder"] := 2 ^ A["DualDimension"]
 
-A_GeometricAlgebra["Metric"] :=
+A_GeometricAlgebra["MetricSignature"] :=
     Module[{p, q, r},
         {p, q, r} = A["Signature"];
         Join[ConstantArray[1, p], ConstantArray[0, r], ConstantArray[-1, q]]
     ]
+
+A_GeometricAlgebra["MetricMatrix"] := Map[Lookup[#, Key[{}], 0] &, A["MultiplicationTable"], {2}]
 
 A_GeometricAlgebra["Indices"] := A["Indices"] = Module[{
     p, q, r
@@ -124,19 +144,19 @@ middleIndex[A_GeometricAlgebra] := Module[{p, q},
 
 A_GeometricAlgebra["ReIndices"] := Cases[A["Indices"], _List ? (FreeQ[#, middleIndex[A]] &)]
 
-A_GeometricAlgebra["ImIndexSigns"] := With[{i = Last @ A["Indices"]}, Rule @@ Reverse @ multiplyIndices[i, #, A["Metric"]] & /@ A["ReIndices"]]
+A_GeometricAlgebra["ImIndexSigns"] := With[{i = Last @ A["Indices"]}, Rule @@ KeyMap[Reverse] @ multiplyIndices[i, #, A["Metric"]] & /@ A["ReIndices"]]
 
 
 GeometricAlgebra /: Equal[gs__GeometricAlgebra]:= Equal @@ (#["Signature"] & /@ {gs})
 
 
-A_GeometricAlgebra /; System`Private`HoldNotValidQ[A] && GeometricAlgebraQ[Unevaluated[A]] := System`Private`SetNoEntry[System`Private`HoldSetValid[A]]
+A_GeometricAlgebra /; System`Private`HoldNotValidQ[A] && geometricAlgebraQ[Unevaluated[A]] := System`Private`SetNoEntry[System`Private`HoldSetValid[A]]
 
 
 (* Boxes *)
 
 
-GeometricAlgebra /: MakeBoxes[A_GeometricAlgebra, form___] := With[{
+GeometricAlgebra /: MakeBoxes[A_GeometricAlgebra /; GeometricAlgebraQ[Unevaluated[A]], form___] := With[{
     box = Replace[A["Format"], Automatic :> SubscriptBox["\[DoubleStruckCapitalG]", RowBox @ Riffle[ToString /@ Replace[MapAt[Replace[0 -> Nothing], A["Signature"], {3}], {p_, 0} :> {p}], ","]]],
     tooltip = RowBox[{"Geometric Algebra", ToBoxes[A["Signature"], form]}]
 },

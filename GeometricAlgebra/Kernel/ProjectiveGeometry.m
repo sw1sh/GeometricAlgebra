@@ -6,9 +6,13 @@ PackageExport[$PGA]
 PackageExport[RegionPGA]
 PackageExport[PGARegions]
 PackageExport[PGAVectorQ]
+
+PackageExport[PGAMagnitude]
 PackageExport[PGAPoint]
 PackageExport[PGALine]
 PackageExport[PGAPlane]
+PackageExport[PGAMotor]
+PackageExport[PGAFlector]
 
 PackageExport[PGABulk]
 PackageExport[PGARightBulkDual]
@@ -16,6 +20,7 @@ PackageExport[PGALeftBulkDual]
 PackageExport[PGAWeight]
 PackageExport[PGARightWeightDual]
 PackageExport[PGALeftWeightDual]
+PackageExport[PGAAttitude]
 
 PackageExport[PGABulkNorm]
 PackageExport[PGAWeightNorm]
@@ -34,9 +39,10 @@ PackageExport[PGAWeightExpansion]
 
 
 
-$PGA = GeometricAlgebra[3, 0, 1, "Format" -> "PGA"]
+$PGA = e = GeometricAlgebra[3, 0, 1, "Format" -> "PGA"]
 
-eps = Multivector[<|{4} -> 1|>, $PGA]
+eps = e[4]
+i = e[1, 2, 3, 4]
 
 
 PGAVectorQ[v_Multivector] := v["Signature"] === {3, 0, 1}
@@ -46,44 +52,54 @@ pseudoVector[v : {_, _, _}] := Reverse[v] {1, -1, 1}
 
 (* Constructors *)
 
-PGAPoint[p : {_, _, _}, w_ : 1] := Grade[Append[p, w], 1, $PGA]
+PGAMagnitude[x_ : 1, y_ : 1] := x + y i
+
+PGAPoint[p : {_, _, _} : {0, 0, 0}, w_ : 1] := Grade[Append[p, w], 1, $PGA]
 
 PGALine[v : {_, _, _}, m : {_, _, _}] := eps ** Grade[v, 1, $PGA] + Grade[- m, 1, $PGA]["Dual"]
 
-PGAPlane[n : {_, _, _}, d_] := Grade[Prepend[pseudoVector[n], - d], 3, $PGA]
+PGAPlane[n : {_, _, _} : {0, 0, 1}, d_ : 0] := Grade[Prepend[pseudoVector[n], - d], 3, $PGA]
+
+PGAMotor[v : {_, _, _}, m : {_, _, _}, vw_ : 1, mw_ : 1] := mw + v . e[{{4, 1}, {4, 2}, {4, 3}}] + m . e[{{2, 3}, {3, 1}, {1, 2}}] + vw i
+
+PGAFlector[p : {_, _, _}, g : {_, _, _}, pw_ : 1, gw_ : 1] := Grade[Append[p, pw], 1, $PGA] + eps ** Grade[- g, 1, $PGA]["Dual"] + gw e[3, 2, 1]
 
 
 (* Unary operations *)
 
 PGABulk[v_Multivector] := Multivector[KeySelect[v["Association"], FreeQ[4]], v["GeometricAlgebra"]]
 
-PGARightBulkDual[v_Multivector] := PGABulk[v]["RightComplement"]
+PGARightBulkDual[v_Multivector] := OverBar[PGABulk[v]]
 
-PGALeftBulkDual[v_Multivector] := PGABulk[v]["LeftComplement"]
+PGALeftBulkDual[v_Multivector] := UnderBar[PGABulk[v]]
 
 PGAWeight[v_Multivector] := Multivector[KeySelect[v["Association"], Not @* FreeQ[4]], v["GeometricAlgebra"]]
 
-PGARightWeightDual[v_Multivector] := PGAWeight[v]["RightComplement"]
+PGARightWeightDual[v_Multivector] := OverBar[PGAWeight[v]]
 
-PGALeftWeightDual[v_Multivector] := PGAWeight[v]["LeftComplement"]
+PGALeftWeightDual[v_Multivector] := UnderBar[PGAWeight[v]]
+
+PGAAttitude[v_Multivector] := Vee[v, OverBar[eps]]
+
 
 (* Norms *)
 
-PGABulkNorm[a_Multivector] := Sqrt[a ** a["Reverse"]]
+PGABulkNorm[a_Multivector] := Sqrt[a ** OverTilde[a]]
 
-PGAWeightNorm[a_Multivector] := Sqrt[AntiGeometricProduct[a, a["AntiReverse"]]]
+PGAWeightNorm[a_Multivector] := Sqrt[AntiGeometricProduct[a, AntiReverse[a]]]
  
 PGANorm[a_Multivector] := PGABulkNorm[a] + PGAWeightNorm[a]
 
+
 (* Binary operations *)
 
-RightInteriorProduct[a_Multivector, b_Multivector] := Vee[a, b["RightComplement"]]
+RightInteriorProduct[a_Multivector, b_Multivector] := Vee[a, OverBar[b]]
 
-LeftInteriorProduct[a_Multivector, b_Multivector] := Vee[a["LeftComplement"], b]
+LeftInteriorProduct[a_Multivector, b_Multivector] := Vee[UnderBar[a], b]
 
-RightInteriorAntiProduct[a_Multivector, b_Multivector] := Wedge[a, b["RightComplement"]]
+RightInteriorAntiProduct[a_Multivector, b_Multivector] := Wedge[a, OverBar[b]]
 
-LeftInteriorAntiProduct[a_Multivector, b_Multivector] := Wedge[a["LeftComplement"], b]
+LeftInteriorAntiProduct[a_Multivector, b_Multivector] := Wedge[UnderBar[a], b]
 
 PGAProjection[a_Multivector, b_Multivector] := LeftInteriorProduct[RightInteriorProduct[PGAWeight[b], a], b]
 

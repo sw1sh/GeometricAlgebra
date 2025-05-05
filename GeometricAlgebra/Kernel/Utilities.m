@@ -1,12 +1,12 @@
 Package["Wolfram`GeometricAlgebra`"]
 
-PackageScope[$ElementwiseFunction]
+PackageScope[elementwiseFunctionQ]
 PackageScope[numericFunctionQ]
 PackageScope[hasDefinitionsQ]
 PackageScope[permutationSignature]
 
 
-$ElementwiseFunction = Simplify | FullSimplify | Expand | ComplexExpand | TrigExpand | ExpToTrig | TrigToExp
+elementwiseFunctionQ = MatchQ[Simplify | FullSimplify | Expand | ComplexExpand | TrigExpand | ExpToTrig | TrigToExp | Chop]
 
 numericFunctionQ[f_] := MatchQ[f, _Symbol] && MemberQ[Attributes[f], NumericFunction]
 

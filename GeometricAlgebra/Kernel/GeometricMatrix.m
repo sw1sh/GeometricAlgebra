@@ -150,8 +150,10 @@ CanonicalMultivector[v_Multivector, opts : OptionsPattern[]] :=
 
 
 fromRealCanonicalMultivector[v_Multivector, A_GeometricAlgebra] /;
-        CanonicalGeometricAlgebra[v["GeometricAlgebra"]]["Signature"] == v["Signature"] := Module[{
-    assoc, G, is, j},
+    CanonicalGeometricAlgebra[v["GeometricAlgebra"]]["Signature"] == v["Signature"] :=
+Block[{
+    assoc, G, is, j
+},
     G = v["GeometricAlgebra"];
     assoc = v["Association"];
     is = Association[
@@ -160,7 +162,7 @@ fromRealCanonicalMultivector[v_Multivector, A_GeometricAlgebra] /;
     ];
     j = With[{keys = Complement[v["Indices"], Keys[is]]}, AssociationThread[keys, Lookup[assoc, Key /@ keys, 0]]];
     Multivector[
-        Association[I #[[1]] Lookup[assoc, Key @ #[[2]], 0] & /@ is, j],
+        Association[I Values[#] . Lookup[assoc, Keys[#], 0] & /@ is, j],
         G
     ]
 ]

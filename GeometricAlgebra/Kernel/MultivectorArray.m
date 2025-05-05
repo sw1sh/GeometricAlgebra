@@ -16,7 +16,16 @@ PackageScope["mapComponents"]
 Options[MultivectorArray] = {"Components" -> {}, "Shape" -> {}}
 
 
-MultivectorArrayQ[HoldPattern[MultivectorArray[opts : OptionsPattern[]]]] := ArrayQ[OptionValue[{opts}, "Components"], _, MultivectorQ] && MatchQ[OptionValue[{opts}, "Shape"], {___Integer}]
+multivectorArrayQ[HoldPattern[MultivectorArray[opts : OptionsPattern[]]]] := MatchQ[
+    Unevaluated[{opts}],
+    KeyValuePattern[{"Components" -> components_, "Shape" -> shape_}] /;
+        ArrayQ[Unevaluated[components], _, MultivectorQ] && MatchQ[Unevaluated[shape], {___Integer}]
+]
+
+multivectorArrayQ[___] := False
+
+
+MultivectorArrayQ[va_MultivectorArray] := System`Private`HoldValidQ[va] || multivectorArrayQ[Unevaluated[va]]
 
 MultivectorArrayQ[___] := False
 
@@ -129,12 +138,12 @@ MultivectorArray /: NonCommutativeMultiply[left___, v_MultivectorArray, right___
 
 
 MultivectorArray /: Equal[vas__MultivectorArray ? MultivectorArrayQ] := With[{shapes = Through[{vas}["Shape"]]},
-    Equal @@ shapes && Apply[And, MapThread[Equal, Normal /@ {vas}, {Length[First[shapes]]}], All]
+    Equal @@ shapes && Apply[And, MapThread[Equal, Normal /@ {vas}, Length[First[shapes]]], All]
 ]
 
 MultivectorArray /: Normal[va_MultivectorArray ? MultivectorArrayQ] := va["Components"]
 
-MultivectorArray /: (f : $ElementwiseFunction)[va_MultivectorArray, args___] := va[f[#, args] &]
+MultivectorArray /: (f_Symbol ? elementwiseFunctionQ)[va_MultivectorArray, args___] := va[f[#, args] &]
 
 MultivectorArray /: N[va_MultivectorArray ? MultivectorArrayQ, args___] := With[{components = N[va["Components"], args]},
     MultivectorArray[components, va["Shape"]] /; components =!= va["Components"]
@@ -142,7 +151,7 @@ MultivectorArray /: N[va_MultivectorArray ? MultivectorArrayQ, args___] := With[
 
 SetAttributes[MultivectorArray, NHoldAll]
 
-va_MultivectorArray /; System`Private`HoldNotValidQ[va] && MultivectorArrayQ[Unevaluated[va]] := System`Private`SetNoEntry[System`Private`HoldSetValid[va]]
+va_MultivectorArray /; System`Private`HoldNotValidQ[va] && multivectorArrayQ[Unevaluated[va]] := System`Private`SetNoEntry[System`Private`HoldSetValid[va]]
 
 
 (* Transpose *)
@@ -189,7 +198,7 @@ shapeGridBoxes[array_, shape_] := If[shape === {},
     ]
 ]
 
-MultivectorArray /: MakeBoxes[va: MultivectorArray[opts: OptionsPattern[]], _] := Module[{
+MultivectorArray /: MakeBoxes[va: HoldPattern[MultivectorArray[opts : OptionsPattern[]]] /; MultivectorArrayQ[Unevaluated[va]], _] := Module[{
     shape = va["Shape"],
     components,
     dims, size,
