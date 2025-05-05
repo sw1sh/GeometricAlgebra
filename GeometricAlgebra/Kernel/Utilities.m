@@ -1,5 +1,7 @@
 Package["Wolfram`GeometricAlgebra`"]
 
+PackageExport[ExteriorMatrix]
+
 PackageScope[elementwiseFunctionQ]
 PackageScope[numericFunctionQ]
 PackageScope[hasDefinitionsQ]
@@ -17,3 +19,16 @@ hasDefinitionsQ[f_] := GeneralUtilities`HasDefinitionsQ[f]
 
 
 permutationSignature[x_List, y_List] := Signature[PermutationList[FindPermutation[x, y]]]
+
+
+ExteriorMatrix[matrix_ ? SquareMatrixQ] := With[{n = Length[matrix]},
+	BlockDiagonalMatrix @ Table[
+		With[{subsets = Subsets[Range[n], {k}]},
+			SparseArray @ Map[columns |->
+				Total[Signature[#] * Times @@ MapThread[Part, {columns, #}] & /@ Permutations[#]] & /@ subsets,
+				Map[matrix[[All, #]] &, subsets, {2}]
+			]
+		],
+		{k, 0, n}
+	]
+]

@@ -12,7 +12,7 @@ PackageScope["higherGeometricAlgebra"]
 GeometricAlgebra::usage = "GeometricAlgebra[p, q] gives an underlying algebra object for use with Multivector";
 
 
-Options[GeometricAlgebra] = {"Signature" -> {3, 0, 0}, "Metric" -> Automatic, "Format" -> Automatic, "FormatIndex" -> Automatic}
+Options[GeometricAlgebra] = {"Signature" -> {3, 0, 0}, "VectorBasis" -> Automatic, "Format" -> Automatic, "FormatIndex" -> Automatic}
 
 
 $GeometricAlgebraProperties = {
@@ -31,6 +31,7 @@ $GeometricAlgebraProperties = {
     "ComplexOrder",
     "DualOrder",
 
+    "VectorBasis",
     "Metric",
     "MatricSignature",
     "Indices",
@@ -40,7 +41,10 @@ $GeometricAlgebraProperties = {
     "Basis",
     "PseudoBasis",
 
+    "MultiplicationMatrix",
     "MultiplicationTable",
+    "ExomorphismMatrix",
+    "AntiExomorphismMatrix",
 
     "PseudoscalarSquare",
     "ComplexAlgebra",
@@ -81,12 +85,18 @@ GeometricAlgebra /: HoldPattern[Options[GeometricAlgebra[data_] ? GeometricAlgeb
 
 A_GeometricAlgebra[opt_String] /; KeyExistsQ[Options[GeometricAlgebra], opt] := With[{value = OptionValue[{Options[A], Options[GeometricAlgebra]}, opt]},
     Switch[opt,
-        "Metric",
-        Replace[value, Automatic :> If[A["Dimension"] == 0, {{}}, DiagonalMatrix[A["MetricSignature"]]]],
+        "VectorBasis",
+        Replace[value, Automatic :> If[A["Dimension"] == 0, {{}}, IdentityMatrix[A["Dimension"]]]],
         _,
         value
     ]
 ]
+
+A_GeometricAlgebra["Metric"] := Replace[A["VectorBasis"], {
+    Automatic :> If[A["Dimension"] == 0, {{}}, DiagonalMatrix[A["MetricSignature"]]],
+    b_ ? SquareMatrixQ :> Transpose[b] . DiagonalMatrix[A["MetricSignature"]] . b,
+    b_ ? VectorQ :> A["MetricSignature"] * b ^ 2
+}]
 
 A_GeometricAlgebra["ComplexSignature"] := A["Signature"][[;; 2]]
 

@@ -2,6 +2,7 @@ Package["Wolfram`GeometricAlgebra`"]
 
 
 PackageExport["MultivectorFunction"]
+PackageExport["MultivectorPower"]
 PackageExport["MultivectorExp"]
 PackageExport["MultivectorLog"]
 PackageExport["CanonicalGeometricAlgebra"]
@@ -63,11 +64,11 @@ CanonicalGeometricAlgebra[G_GeometricAlgebra] := Module[{
     n2 = Ceiling[n / 2];
     indexConversion = Association @ CanonicalGeometricIndices[G];
     newIndex = Map[
-        With[{c = indexConversion[#][[1]], box = geometricIndexBoxes[G, #]},
+        With[{c = indexConversion[#][[1]], index = geometricIndexFormat[G, #]},
             indexConversion[#][[2]] -> Switch[c,
-                -1 | -I, RowBox[{"(", ToBoxes[c], ")", box}],
-                I, RowBox[{"\[ImaginaryI]", box}],
-                _, box
+                -1 | -I, Row[{"(", c, ")", index}],
+                I, Row[{"\[ImaginaryI]", index}],
+                _, index
             ]
         ] &,
         G["Indices"]
@@ -111,7 +112,7 @@ ConvertGeometricAlgebra[
     v_Multivector,
     G_GeometricAlgebra,
     opts: OptionsPattern[ConvertGeometricAlgebra]] := Module[{
-        toCanonicConversion, fromCanonicConversion, canonicCoordinates, i
+        toCanonicConversion, fromCanonicConversion, canonicCoordinates, i, w
 },
     If[v["ComplexDimension"] + 2 v["DualDimension"] != G["ComplexDimension"] + 2 G["DualDimension"],
         Return[$Failed]
@@ -125,16 +126,18 @@ ConvertGeometricAlgebra[
     toCanonicConversion = CanonicalGeometricIndices[v["GeometricAlgebra"]];
     fromCanonicConversion = CanonicalGeometricIndices[G];
     canonicCoordinates = Association @ MapThread[Function[{x, y}, y[[2]] -> x y[[1]], HoldAllComplete],
-        {v["Coordinates"], toCanonicConversion[[All, 2]]}
+        {ExteriorMatrix[Inverse[v["VectorBasis"]]] . v["Coordinates"], toCanonicConversion[[All, 2]]}
     ];
     i = OptionValue["Pseudoscalar"];
 
-    Total @ Map[
+    w = Total @ Map[
         Apply[With[{c = canonicCoordinates[#2[[2]]] Conjugate[#2[[1]]]},
             Multivector[<|#1 -> If[i != I, Re[c] + Im[c] i, c]|>, G]
         ]
         &], fromCanonicConversion
-    ]
+    ];
+
+    Multivector[ExteriorMatrix[G["VectorBasis"]] . w["Coordinates"], G]
 ]
 
 ConvertGeometricAlgebra[v_Multivector, args: Except[OptionsPattern[]], opts: OptionsPattern[]] :=
@@ -395,6 +398,7 @@ MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multive
 
 v_Multivector["Matrix"] := MultivectorMatrix[v]
 
+MultivectorPower[v_Multivector, n_] := MultivectorFunction[# ^ n &, v]
 
 MultivectorExp[v_Multivector, opts: OptionsPattern[]] := MultivectorFunction[Exp, v, opts]
 
@@ -407,6 +411,7 @@ DualComplexMultivector[v_Multivector] := Module[{
     p, q, r, G
 },
     {p, q, r} = v["Signature"];
+    If[r == 0, Return[v]];
     G = GeometricAlgebra[p + r, q + r];
     Multivector[
         Association @ KeyValueMap[
@@ -421,6 +426,7 @@ DualComplexMultivector[v_Multivector] := Module[{
 ComplexDualMultivector[v_Multivector, r_Integer : 1] := Module[{
     p, q, G
 },
+    If[r == 0, Return[v]];
     {p, q} = v["ComplexSignature"];
     G = GeometricAlgebra[p - r, q - r, r];
     Multivector[

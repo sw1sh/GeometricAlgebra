@@ -54,7 +54,7 @@ PackageExport["AntiGeometricProduct"]
 
 PackageScope["zeroMultivector"]
 PackageScope["identityMultivector"]
-PackageScope["geometricIndexBoxes"]
+PackageScope["geometricIndexFormat"]
 PackageScope["multiplyIndices"]
 PackageScope["$defaultMultivectorFormatFunction"]
 
@@ -179,7 +179,6 @@ v_Multivector[keys : {{___Integer} ..}] := v /@ keys
 
 v_Multivector[f_] := mapCoordinates[f, v]
 
-Multivector /: f_Symbol[v_Multivector] /; MemberQ[Attributes[f], NumericFunction] := v[f]
 
 
 Multivector /: v_Multivector[opt: Alternatives @@ Keys @ Options @ Multivector] := Lookup[Options[v], opt]
@@ -326,9 +325,26 @@ A_GeometricAlgebra["Identity"] := identityMultivector[A]
 
 (* Geometric Product *)
 
-A_GeometricAlgebra["MultiplicationMatrix"] := A["MultiplicationMatrix"] = With[{indices = A["Indices"], metric = A["Metric"]}, {index = PositionIndex[indices]},
-    SparseArray @ Outer[SparseArray[Normal @ KeyMap[Lookup[index, Key[#]] &, multiplyIndices[#1, #2, metric]], Length[indices]] &, indices, indices, 1]
+A_GeometricAlgebra["BasisMatrix"] := A["BasisMatrix"] = ExteriorMatrix[A["VectorBasis"]]
+
+A_GeometricAlgebra["InverseBasisMatrix"] := A["InverseBasisMatrix"] = ExteriorMatrix[Inverse[A["VectorBasis"]]]
+
+A_GeometricAlgebra["MultiplicationTensor"] := A["MultiplicationTensor"] = With[{indices = A["Indices"], metric = A["MetricSignature"]}, {index = PositionIndex[indices]},
+    SparseArray[Outer[SparseArray[Normal @ KeyMap[Lookup[index, Key[#]] &, multiplyIndices[#1, #2, metric]], Length[indices]] &, indices, indices, 1]]
 ]
+
+A_GeometricAlgebra["MetricMultiplicationTensor"] := A["MetricMultiplicationTensor"] = With[{a = Transpose @ A["BasisMatrix"], b = Transpose @ A["InverseBasisMatrix"]},
+    Transpose[b . Transpose[b . A["MultiplicationTensor"]]] . a
+]
+
+A_GeometricAlgebra["ExomorphismMatrix"] := A["ExomorphismMatrix"] =
+    SparseArray @ With[{metric = A["Metric"]}, Wedge[##]["Coordinates"] & @@@ Replace[Map[Grade[Transpose[metric[[All, #]]], 1, A] &, A["Indices"], {2}], {} -> {A[0]}, 1]]
+
+A_GeometricAlgebra["AntiExomorphismMatrix"] := A["AntiExomorphismMatrix"] = Det[A["Metric"]] * SparseArray[Inverse[A["ExomorphismMatrix"]]]
+
+v_Multivector["Bulk"] := With[{A = GeometricAlgebra[v]}, Multivector[A["ExomorphismMatrix"] . v["Coordinates"], A]]
+
+v_Multivector["Weight"] := UnderBar[OverBar[v]["Bulk"]]
 
 
 switchDualSide[v_Multivector] :=
@@ -338,7 +354,12 @@ switchDualSide[v_Multivector] :=
     ]
 
 A_GeometricAlgebra["MultiplicationTable"] := ResourceFunction["GridTableForm"][
-    Map[Multivector[#, A] &, A["MultiplicationMatrix"], {2}],
+    Map[Multivector[#, A] &, A["MultiplicationTensor"], {2}],
+    TableHeadings -> {A["Basis"], A["Basis"]}
+]
+
+A_GeometricAlgebra["MetricMultiplicationTable"] := ResourceFunction["GridTableForm"][
+    Map[Multivector[#, A] &, A["MetricMultiplicationTensor"], {2}],
     TableHeadings -> {A["Basis"], A["Basis"]}
 ]
 
@@ -355,7 +376,7 @@ GeometricProduct[v_Multivector, w_Multivector] := Module[{
 
     coords = Outer[coordinateTimes, x, y];
     Multivector[
-        Flatten[coords, 1] . Flatten[A["MultiplicationMatrix"], 1],
+        Flatten[coords, 1] . Flatten[A["MetricMultiplicationTensor"], 1],
         A
     ][Map[reduceFunctions]]
 ]
@@ -505,7 +526,9 @@ Multivector /: Divide[v_, w_Multivector] := Multivector[v, w["GeometricAlgebra"]
 
 (* Root *)
 
-Multivector /: Root[v_Multivector, n_Integer] := MultivectorFunction[MatrixPower[#, 1 / n] &, v]
+Multivector /: Sqrt[v_Multivector] := v ^ (1 / 2)
+
+Multivector /: Root[v_Multivector, n_Integer] := MultivectorFunction[Power[#, 1 / n] &, v]
 
 Multivector /: Power[v_Multivector, p_Rational] := With[{n = Numerator[p], d = Denominator[p]}, Root[v ^ n, d]]
 
@@ -662,14 +685,14 @@ orderIndexWithSign[index_List, n_Integer] := With[{order = OrderingBy[index, Mod
 
 contractBlade[index_, g_] := Block[{newIndex, squares},
     squares = First[Reap[newIndex = SequenceReplace[index, {x_, x_} :> (Sow[x]; Nothing)]][[2]], {}];
-    {newIndex, Times @@ (g[[#, #]] & /@ squares)}
+    {newIndex, Times @@ If[VectorQ[g], g[[squares]], g[[#, #]] & /@ squares]}
 ]
 
 orderAndContract[index_, g_] := ({j, x} |-> {#1, x * #2} & @@ contractBlade[j, g]) @@ orderIndexWithSign[index, Length[g]]
 
-orderAndContractBlades[g_][indices_] := Merge[Mean] @ KeyValueMap[{k, x} |-> #1 -> x * #2 & @@ orderAndContract[k, g], indices]
+orderAndContractBlades[g_][indices_] := Merge[Total] @ KeyValueMap[{k, x} |-> #1 -> x * #2 & @@ orderAndContract[k, g], indices]
 
-multiplyIndices[uu : {___Integer}, vv : {___Integer}, g_] := Block[{
+multiplyIndices[uu : {___Integer}, vv : {___Integer}, g_ ? SquareMatrixQ] := Block[{
 	n = Length[g], x, y, u, v, j, k, sigma, tau
 },
 	{u, x} = orderAndContract[uu, g];
@@ -689,6 +712,8 @@ multiplyIndices[uu : {___Integer}, vv : {___Integer}, g_] := Block[{
 	]
 ]
 
+multiplyIndices[u : {___Integer}, v : {___Integer}, g_ ? VectorQ] := <|#1 -> #2|> & @@ orderAndContract[Join[u, v], g]
+
 
 (* Boxes *)
 
@@ -700,8 +725,8 @@ $defaultMultivectorFormatFunction = Function[index,
 ]
 
 
-geometricIndexBoxes[A_GeometricAlgebra, index_] := With[{format = A["FormatIndex"]},
-    ToBoxes @ Switch[format,
+geometricIndexFormat[A_GeometricAlgebra, index_] := With[{format = A["FormatIndex"]},
+    Switch[format,
         Automatic,
         $defaultMultivectorFormatFunction[index]
         ,
@@ -716,13 +741,13 @@ geometricIndexBoxes[A_GeometricAlgebra, index_] := With[{format = A["FormatIndex
     ]
 ]
 
-geometricIndexBoxes[index_] := geometricIndexBoxes[Lookup[Options[Multivector], "GeometricAlgebra"], index]
+geometricIndexFormat[index_] := geometricIndexFormat[Lookup[Options[Multivector], "GeometricAlgebra"], index]
 
-geometricIndexBoxes[A_GeometricAlgebra, {indices__List}] := geometricIndexBoxes[A, #] & /@ {indices}
+geometricIndexFormat[A_GeometricAlgebra, {indices__List}] := geometricIndexFormat[A, #] & /@ {indices}
 
-geometricIndexBoxes[A_GeometricAlgebra] := geometricIndexBoxes[A, A["Indices"]]
+geometricIndexFormat[A_GeometricAlgebra] := geometricIndexFormat[A, A["Indices"]]
 
-geometricIndexBoxes[] := geometricIndexBoxes[Lookup[Options[Multivector], "GeometricAlgebra"]]
+geometricIndexFormat[] := geometricIndexFormat[Lookup[Options[Multivector], "GeometricAlgebra"]]
 
 
 SetAttributes[holdSparseArray, {HoldAll}];
@@ -773,20 +798,19 @@ Multivector /: MakeBoxes[v : HoldPattern[Multivector[opts___]] /; MultivectorQ[U
             ],
             rules
         ];
-    display = RowBox[
-    If[Length[nonZeroPositions] > 0,
+    display = RowBox @
+    If[ Length[nonZeroPositions] > 0,
         Riffle[
             MapThread[
                 RowBox[{
                     #1,
-                    geometricIndexBoxes[A, #2]}
+                    ToBoxes[geometricIndexFormat[A, #2]]}
                 ] &,
                 { Slot /@ Range[n], indices}
             ],
         "+"
         ],
         {0} (* all zeros displayed as just zero *)
-    ]
     ];
     interpret = RowBox[{"Multivector", "[",
         "\"Coordinates\"", "->", 
