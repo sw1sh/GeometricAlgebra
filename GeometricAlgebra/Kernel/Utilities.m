@@ -2,6 +2,7 @@ Package["Wolfram`GeometricAlgebra`"]
 
 PackageExport[ExteriorMatrix]
 
+PackageScope[MatrixInverse]
 PackageScope[elementwiseFunctionQ]
 PackageScope[numericFunctionQ]
 PackageScope[hasDefinitionsQ]
@@ -21,6 +22,8 @@ hasDefinitionsQ[f_] := GeneralUtilities`HasDefinitionsQ[f]
 permutationSignature[x_List, y_List] := Signature[PermutationList[FindPermutation[x, y]]]
 
 
+ExteriorMatrix[{{}}] := {{1}}
+
 ExteriorMatrix[matrix_ ? SquareMatrixQ] := With[{n = Length[matrix]},
 	BlockDiagonalMatrix @ Table[
 		With[{subsets = Subsets[Range[n], {k}]},
@@ -32,3 +35,7 @@ ExteriorMatrix[matrix_ ? SquareMatrixQ] := With[{n = Length[matrix]},
 		{k, 0, n}
 	]
 ]
+
+MatrixInverse[{{}}] := {{}}
+
+MatrixInverse[matrix_ ? SquareMatrixQ] := Inverse[matrix]

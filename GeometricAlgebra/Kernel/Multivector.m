@@ -327,7 +327,7 @@ A_GeometricAlgebra["Identity"] := identityMultivector[A]
 
 A_GeometricAlgebra["BasisMatrix"] := A["BasisMatrix"] = ExteriorMatrix[A["VectorBasis"]]
 
-A_GeometricAlgebra["InverseBasisMatrix"] := A["InverseBasisMatrix"] = ExteriorMatrix[Inverse[A["VectorBasis"]]]
+A_GeometricAlgebra["InverseBasisMatrix"] := A["InverseBasisMatrix"] = ExteriorMatrix[MatrixInverse[A["VectorBasis"]]]
 
 A_GeometricAlgebra["MultiplicationTensor"] := A["MultiplicationTensor"] = With[{indices = A["Indices"], metric = A["MetricSignature"]}, {index = PositionIndex[indices]},
     SparseArray[Outer[SparseArray[Normal @ KeyMap[Lookup[index, Key[#]] &, multiplyIndices[#1, #2, metric]], Length[indices]] &, indices, indices, 1]]
