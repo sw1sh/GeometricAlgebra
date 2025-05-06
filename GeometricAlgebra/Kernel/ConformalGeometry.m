@@ -2,6 +2,7 @@ Package["Wolfram`GeometricAlgebra`ConformalGeometry`"]
 
 PackageImport["Wolfram`GeometricAlgebra`"]
 
+PackageExport[$CGA0]
 PackageExport[$CGA]
 PackageExport[CGAQ]
 
@@ -16,13 +17,18 @@ PackageExport[Cocarrier]
 PackageExport[RegionCGA]
 PackageExport[CGARegions]
 PackageExport[CGAFlatPoint]
+PackageExport[CGALine]
+PackageExport[CGAPlane]
 PackageExport[CGARoundPoint]
-PackageExport[CGASphere]
 PackageExport[CGADipole]
-PackageExport[Carrier]
-PackageExport[Cocarrier]
+PackageExport[CGACircle]
+PackageExport[CGASphere]
 
 
+
+$CGA0 = GeometricAlgebra[4, 1, "Format" -> "CGA0", "FormatIndex" -> Function[$DefaultMultivectorFormatFunction[#] /. {4 -> "-", UnderBar[1] -> "+"}],
+    "VectorBasis" -> {{1, 0, 0, 0, 0}, {0, 1, 0, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 0, 0, 1}, {0, 0, 0, 1, 0}}
+]
 
 $CGA = GeometricAlgebra[4, 1, "Format" -> "CGA", "FormatIndex" -> "Positive", "VectorBasis" -> {{1, 0, 0, 0, 0}, {0, 1, 0, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 0, - 1 / 2, 1}, {0, 0, 0, 1 / 2, 1}}];
 e = $CGA;

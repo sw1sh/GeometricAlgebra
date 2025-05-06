@@ -52,11 +52,12 @@ PackageExport["AntiDot"]
 
 PackageExport["AntiGeometricProduct"]
 
+PackageExport["$DefaultMultivectorFormatFunction"]
+
 PackageScope["zeroMultivector"]
 PackageScope["identityMultivector"]
 PackageScope["geometricIndexFormat"]
 PackageScope["multiplyIndices"]
-PackageScope["$defaultMultivectorFormatFunction"]
 
 PackageScope["switchDualSide"]
 
@@ -70,7 +71,7 @@ Options[Multivector] = {
 multivectorQ[HoldPattern[Multivector[opts : OptionsPattern[]]]] := MatchQ[
     Unevaluated[{opts}],
     KeyValuePattern[{"Coordinates" -> coords_, "GeometricAlgebra" -> A_}] /;
-        GeometricAlgebraQ[Unevaluated[A]] && VectorQ[Unevaluated[coords]] && Length[Unevaluated[coords]] == A["Order"]
+        GeometricAlgebraQ[Unevaluated[A]] && VectorQ[coords] && Length[coords] == A["Order"]
 ]
 
 multivectorQ[___] := False
@@ -717,7 +718,7 @@ multiplyIndices[u : {___Integer}, v : {___Integer}, g_ ? VectorQ] := <|#1 -> #2|
 
 (* Boxes *)
 
-$defaultMultivectorFormatFunction = Function[index,
+$DefaultMultivectorFormatFunction = Function[index,
     If[ index === {},
         "", (* don't display zero coefficient terms *)
         Subscript["e", Row @ Riffle[If[# > 0, #, UnderBar[Abs[#]]] & /@ index, "\[InvisibleComma]"]]
@@ -728,16 +729,16 @@ $defaultMultivectorFormatFunction = Function[index,
 geometricIndexFormat[A_GeometricAlgebra, index_] := With[{format = A["FormatIndex"]},
     Switch[format,
         Automatic,
-        $defaultMultivectorFormatFunction[index]
+        $DefaultMultivectorFormatFunction[index]
         ,
         "Positive",
-        $defaultMultivectorFormatFunction[positiveIndex[index, A["Signature"]] - 1]
+        $DefaultMultivectorFormatFunction[positiveIndex[index, A["Signature"]] - 1]
         ,
         _Function,
         format[index]
         ,
         _,
-        index /. Append[_ -> $defaultMultivectorFormatFunction[index]] @ DeleteCases[Except[_Rule]] @ Developer`ToList[format]
+        index /. Append[_ -> $DefaultMultivectorFormatFunction[index]] @ DeleteCases[Except[_Rule]] @ Developer`ToList[format]
     ]
 ]
 
@@ -804,7 +805,7 @@ Multivector /: MakeBoxes[v : HoldPattern[Multivector[opts___]] /; MultivectorQ[U
             MapThread[
                 RowBox[{
                     #1,
-                    ToBoxes[geometricIndexFormat[A, #2]]}
+                    StyleBox[ToBoxes[geometricIndexFormat[A, #2]], "ShowStringCharacters" -> False]}
                 ] &,
                 { Slot /@ Range[n], indices}
             ],
@@ -819,7 +820,7 @@ Multivector /: MakeBoxes[v : HoldPattern[Multivector[opts___]] /; MultivectorQ[U
                 Riffle[MapThread[RowBox[{ToBoxes[#1], "->", #2}] &, {nonZeroPositions, Slot /@ Range[n]}], ","],
                 {}
             ],
-            "}", ",",ToBoxes[A["Order"]],
+            "}", ",", ToBoxes[A["Order"]],
         "]",
         Sequence @@ optBoxes, "]"}
     ];
