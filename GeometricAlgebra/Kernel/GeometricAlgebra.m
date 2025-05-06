@@ -35,6 +35,7 @@ $GeometricAlgebraProperties = {
     "Metric",
     "MatricSignature",
     "Indices",
+    "DualIndices",
     "ReIndices",
     "ImIndexSigns",
 
@@ -129,6 +130,9 @@ A_GeometricAlgebra["Indices"] := A["Indices"] = Module[{
     Subsets[Join[Range[p], p + Range[r], Range[- q, -1]]]
 ]
 
+A_GeometricAlgebra["DualIndices"] := With[{i = Last @ A["Indices"]},
+     Map[DeleteElements[i, #] &, A["Indices"]]
+]
 
 A_GeometricAlgebra["PseudoscalarSquare"] := Module[{p, q},
     {p, q} = A["ComplexSignature"];

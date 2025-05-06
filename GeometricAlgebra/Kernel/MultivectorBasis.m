@@ -4,11 +4,7 @@ Package["Wolfram`GeometricAlgebra`"]
 PackageExport["MultivectorBasis"]
 
 
-PackageScope["binomialSum"]
-PackageScope["gradeIndices"]
-PackageScope["indexSpan"]
-PackageScope["normalIndex"]
-PackageScope["positiveIndex"]
+
 
 
 MultivectorBasis::usage = "MultivectorBasis[A, g] gives a list of multivectors from canonical basis of geometric algebra A with grade g";
@@ -40,9 +36,11 @@ MultivectorBasis[args__] := MultivectorBasis[GeometricAlgebra[], args]
 MultivectorBasis[] := MultivectorBasis[All]
 
 
+(* Basis indexing *)
+
 A_GeometricAlgebra[] := Multivector[1, A]
 
-A_GeometricAlgebra[indices__Integer] := Multivector[<|normalIndex[{indices}, A["Signature"]] -> 1|>, A]
+A_GeometricAlgebra[indices__Integer] := Multivector[<|{indices} -> 1|>, A]
 
 A_GeometricAlgebra[indices : {___Integer}] := A @@ indices
 
@@ -51,31 +49,4 @@ A_GeometricAlgebra[indices : {{___Integer} ...}] := A @@@ indices
 A_GeometricAlgebra["Basis", args___] := MultivectorBasis[A, args]
 
 A_GeometricAlgebra["PseudoBasis", args___] := A["Pseudoscalar"] ** # & /@ MultivectorBasis[A, args]
-
-
-(* Utility functions *)
-
-binomialSum[n_Integer, k_Integer] := Module[{i}, Evaluate[Sum[Binomial[n, i], {i, 0, k}]]]
-
-
-gradeIndices[A_GeometricAlgebra, k_Integer] := SparseArray[
-    Thread[Range[binomialSum[A["Dimension"], k - 1] + 1, binomialSum[A["Dimension"], k]] -> 1],
-    A["Order"]
-]
-
-
-indexSpan[v_Multivector, n_Integer] :=
-    binomialSum[v["GeometricAlgebra"]["Dimension"], n - 1] + 1 ;; binomialSum[v["GeometricAlgebra"]["Dimension"], n]
-
-indexSpan[_Multivector, All] := All
-
-
-positiveIndex[index_Integer, {p_, q_, _}] := 1 + If[index >= 0, index, Min[- index, q] + p]
-
-positiveIndex[indices : {___Integer}, signature_] := positiveIndex[#, signature] & /@ indices
-
-
-normalIndex[index_Integer, {p_, q_, r_}] := If[index < 0, Max[index, - q], If[index > p + r, Max[p + r - index, - q], Min[index, p + r]]]
-
-normalIndex[indices : {___Integer}, signature_] := normalIndex[#, signature] & /@ indices
 

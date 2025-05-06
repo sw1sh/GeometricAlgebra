@@ -32,6 +32,12 @@ RightContraction::usage = "RightContraction[v, w] gives a right contraction of m
 PackageExport["ScalarProduct"]
 ScalarProduct::usage = "ScalarProduct[v, w] gives a scalar product of multivectors v and w";
 
+PackageExport["InnerProduct"]
+InnerProduct::usage = "InnerProduct[v, w] gives an inner product of multivectors v and w";
+
+PackageExport["AntiInnerProduct"]
+AntiInnerProduct::usage = "AntiInnerProduct[v, w] gives an anti inner product of multivectors v and w";
+
 PackageExport["LeftDual"]
 LeftDual::usage = "LeftDual[v] gives a left dual of multivector v";
 
@@ -41,23 +47,26 @@ RightDual::usage = "RightDual[v] gives a right dual of multivector v";
 PackageExport["Involute"]
 Involute::usage = "Involute[v] gives a multivector with its odd grades multiplied by -1";
 
-PackageExport["Projection"]
-
 PackageExport["Rejection"]
 Rejection::usage = "Rejection[v, w] gives a rejection of multivector v on w";
 
 PackageExport["AntiReverse"]
+AntiReverse::usage = "AntiReverse[v] gives a multivector with its even grades multiplied by -1";
 
 PackageExport["AntiDot"]
+AntiDot::usage = "AntiDot[v, w] gives an anti dot product of multivectors v and w";
 
 PackageExport["AntiGeometricProduct"]
+AntiGeometricProduct::usage = "AntiGeometricProduct[v, w] gives an anti geometric product of multivectors v and w";
 
 PackageExport["$DefaultMultivectorFormatFunction"]
+$DefaultMultivectorFormatFunction::usage = "$DefaultMultivectorFormatFunction is a default function for formatting multivectors";
 
 PackageScope["zeroMultivector"]
 PackageScope["identityMultivector"]
 PackageScope["geometricIndexFormat"]
 PackageScope["multiplyIndices"]
+PackageScope["orderAndContract"]
 
 PackageScope["switchDualSide"]
 
@@ -127,8 +136,9 @@ Multivector[coords_ ? VectorQ, opts: OptionsPattern[]] :=
     ]
 
 
-Multivector[assoc_Association, opts: OptionsPattern[]] :=
-    Multivector[Lookup[assoc, GeometricAlgebra[OptionValue["GeometricAlgebra"]]["Indices"], 0], opts]
+Multivector[assoc_Association, opts : OptionsPattern[]] := With[{A = GeometricAlgebra[OptionValue["GeometricAlgebra"]]},
+    Multivector[Lookup[KeyValueMap[{index, x} |-> #1 -> x * #2 & @@ orderAndContract[normalIndex[index, A["Signature"]], A["Metric"]], assoc], A["Indices"], 0], opts]
+]
 
 
 Multivector[x : Except[_Association | _ ? VectorQ | _ ? NumericQ | OptionsPattern[]], opts: OptionsPattern[]] := Multivector[{x}, opts]
@@ -339,13 +349,26 @@ A_GeometricAlgebra["MetricMultiplicationTensor"] := A["MetricMultiplicationTenso
 ]
 
 A_GeometricAlgebra["ExomorphismMatrix"] := A["ExomorphismMatrix"] =
-    SparseArray @ With[{metric = A["Metric"]}, Wedge[##]["Coordinates"] & @@@ Replace[Map[Grade[Transpose[metric[[All, #]]], 1, A] &, A["Indices"], {2}], {} -> {A[0]}, 1]]
+    SparseArray @ With[{metric = A["Metric"]}, Wedge[##]["Coordinates"] & @@@ Replace[Map[Grade[Transpose[metric[[All, #]]], 1, A] &, A["Indices"], {2}], {} -> {A[]}, 1]]
 
-A_GeometricAlgebra["AntiExomorphismMatrix"] := A["AntiExomorphismMatrix"] = Det[A["Metric"]] * SparseArray[Inverse[A["ExomorphismMatrix"]]]
+A_GeometricAlgebra["AntiExomorphismMatrix"] := With[{perm = FindPermutation[A["Indices"], A["DualIndices"]]},
+    Permute[Transpose[Permute[A["ExomorphismMatrix"], perm]], perm]
+]
+    
+
+(* A_GeometricAlgebra["AntiExomorphismMatrix"] := A["AntiExomorphismMatrix"] = Det[A["Metric"]] * SparseArray[PseudoInverse[A["ExomorphismMatrix"]]] *)
 
 v_Multivector["Bulk"] := With[{A = GeometricAlgebra[v]}, Multivector[A["ExomorphismMatrix"] . v["Coordinates"], A]]
 
-v_Multivector["Weight"] := UnderBar[OverBar[v]["Bulk"]]
+v_Multivector["Weight"] := With[{A = GeometricAlgebra[v]}, Multivector[A["AntiExomorphismMatrix"] . v["Coordinates"], A]]
+
+v_Multivector["BulkDual" | "RightBulkDual"] := OverBar[v["Bulk"]]
+
+v_Multivector["LeftBulkDual"] := UnderBar[v["Bulk"]]
+
+v_Multivector["WeightDual" | "RightWeightDual"] := OverBar[v["Weight"]]
+
+v_Multivector["LeftWeightDual"] := UnderBar[v["Weight"]]
 
 
 switchDualSide[v_Multivector] :=
@@ -446,6 +469,16 @@ ScalarProduct[vs__Multivector] := Grade[GeometricProduct[vs], 0]
 
 AntiDot[vs__Multivector] := OverBar[Dot @@ UnderBar /@ {vs}]
 
+InnerProduct[v_Multivector, w_Multivector] := With[{A = mergeGeometricAlgebra[v, w]},
+    Multivector[Multivector[w, A]["Coordinates"] . A["ExomorphismMatrix"] . Multivector[v, A]["Coordinates"], A]
+]
+
+AntiInnerProduct[v_Multivector, w_Multivector] := With[{A = mergeGeometricAlgebra[v, w]},
+    Grade[{Multivector[w, A]["Coordinates"] . A["AntiExomorphismMatrix"] . Multivector[v, A]["Coordinates"]}, -1, A]
+]
+
+(* AntiInnerProduct[v_Multivector, w_Multivector] := OverBar[InnerProduct[UnderBar[v], UnderBar[w]]] *)
+
 AntiGeometricProduct[vs__Multivector] := OverBar[GeometricProduct @@ UnderBar /@ {vs}]
 
 
@@ -481,7 +514,7 @@ SuperStar[v_Multivector] ^:= v["Conjugate"]
 v_Multivector["LeftComplement"] := With[{i = Last @ v["Indices"]},
      Multivector[
         Association @ KeyValueMap[
-            Function[{j, x}, With[{k = DeleteCases[i, Alternatives @@ j]}, k -> permutationSignature[i, Join[k, j]] x], HoldAllComplete],
+            Function[{j, x}, With[{k = DeleteElements[i, j]}, k -> permutationSignature[i, Join[k, j]] x], HoldAllComplete],
             v["Association"]
         ],
         v["GeometricAlgebra"]
@@ -491,7 +524,7 @@ v_Multivector["LeftComplement"] := With[{i = Last @ v["Indices"]},
 v_Multivector["RightComplement"] := With[{i = Last @ v["Indices"]},
      Multivector[
         Association @ KeyValueMap[
-            Function[{j, x}, With[{k = DeleteCases[i, Alternatives @@ j]}, k -> permutationSignature[i, Join[j, k]] x], HoldAllComplete],
+            Function[{j, x}, With[{k = DeleteElements[i, j]}, k -> permutationSignature[i, Join[j, k]] x], HoldAllComplete],
             v["Association"]
         ],
         v["GeometricAlgebra"]
@@ -525,13 +558,15 @@ v_Multivector["Inverse"] = Inverse[v]
 Multivector /: Divide[v_, w_Multivector] := Multivector[v, w["GeometricAlgebra"]] ** Inverse[w]
 
 
-(* Root *)
+(* Root and Power *)
 
 Multivector /: Sqrt[v_Multivector] := v ^ (1 / 2)
 
 Multivector /: Root[v_Multivector, n_Integer] := MultivectorFunction[Power[#, 1 / n] &, v]
 
 Multivector /: Power[v_Multivector, p_Rational] := With[{n = Numerator[p], d = Denominator[p]}, Root[v ^ n, d]]
+
+Multivector /: Power[v_Multivector, x_] := MultivectorPower[v, x]
 
 
 (* Grade *)
@@ -543,12 +578,18 @@ Grade[v_Multivector, n_Integer] := mapCoordinates[# gradeIndices[v["GeometricAlg
 
 GradeList[v_Multivector] := Grade[v, #] & /@ Range[0, v["GeometricAlgebra"]["Dimension"]]
 
-Grade[coords_List, k_Integer, A___] := With[{G = GeometricAlgebra[A]}, With[{
-        skipDimension = binomialSum[G["Dimension"], k - 1],
-        bladeDimension = Binomial[G["Dimension"], k]
-    },
+Grade[coords_List, n_Integer, args___] := Block[{
+    G = GeometricAlgebra[args], d,
+    skipDimension, bladeDimension
+},
+    d = G["Dimension"];
+    k = Mod[n, d + 1];
+    skipDimension = binomialSum[d, k - 1];
+    bladeDimension = Binomial[d, k];
     Multivector[SparseArray[MapIndexed[Function[{x, i}, skipDimension + i -> x, HoldAllComplete], Take[coords, UpTo[bladeDimension]]], G["Order"]], G]
-]]
+]
+
+Grade[x_, args___] := Grade[{x}, args]
 
 Grade[v_Multivector, "Even"] := Total[Grade[v, #] & /@ Range[0, v["GeometricAlgebra"]["Dimension"], 2]]
 
@@ -602,21 +643,27 @@ v_Multivector["RightDual"] := RightDual[v]
 v_Multivector["Dual"] := LeftDual[v]
 
 
-(* Various multivector functions *)
+(* Norms *)
 
-v_Multivector["Norm"] := Sqrt[v ^ 2]
+v_Multivector["BulkNorm"] := Sqrt[InnerProduct[v, v]]
 
-Multivector /: Norm[v_Multivector] := v["Det"]
+v_Multivector["WeightNorm"] := Sqrt[AntiInnerProduct[v, v]]
+
+v_Multivector["Norm" | "GeometricNorm"] := v["BulkNorm"] + v["WeightNorm"]
+
+Multivector /: Norm[v_Multivector] := v["Norm"]
 
 
 v_Multivector["Normalize"] := v / v["Norm"]
 
-Multivector /: Normalize[v_Multivector] := v["Det"]
+v_Multivector["Unitize"] := v / v["WeightNorm"]
+
+Multivector /: Normalize[v_Multivector] := v["Normalize"]
 
 
 v_Multivector["Tr"] := v + v["Conjugate"]
 
-Multivector /: Tr[v_Multivector] := v["Det"]
+Multivector /: Tr[v_Multivector] := v["Tr"]
 
 
 v_Multivector["Det"] := v ** v["Conjugate"]
@@ -624,104 +671,12 @@ v_Multivector["Det"] := v ** v["Conjugate"]
 Multivector /: Det[v_Multivector] := v["Det"]
 
 
-(* Utility functions *)
-
-mergeOptions[opts_, drop_: False] := Sequence @@ Normal @ Merge[If[drop, DeleteCases[Join @@ opts, _ -> Automatic], Join @@ opts], First]
-
-
-mergeGeometricAlgebra[vs__Multivector] := GeometricAlgebra[
-    MapThread[Max, #["GeometricAlgebra"]["Signature"] & /@ {vs}],
-    mergeOptions[Normal @ KeyDrop[Options[#["GeometricAlgebra"]], "Signature"] & /@ {vs}, True]
-]
-
-
-constantFunction[f_Function] := f
-constantFunction[x_] := Function[x]
-
-
-functionBody[Function[body_]] := body
-functionBody[x_] := x
-
-
-reduceFunctions[expr_] := Activate @ FixedPoint[Function[x, ReplaceRepeated[x, {
-    HoldPattern[(f: Function[x_])[y_]] :> With[{e = Inactivate[f[y], D]}, Function[e] /; True],
-    f: HoldPattern[Function[x_]] /; FreeQ[Hold[x], _Slot, {0, \[Infinity]}] :> x,
-    (* f: HoldPattern[Function[{xs__}, x_]] /; FreeQ[x, Alternatives[xs], {0, \[Infinity]}]:> x,*)
-    (* HoldPattern[Function[x_]] :> With[{e = Inactivate[x, D]}, Function[e] /; True],*)
-    HoldPattern[Function[Function[x_]]] :> With[{e = Simplify @ Inactivate[x, D]}, Function[e] /; True],
-    HoldPattern[Plus[xs___, f_Function, ys___]] :> With[{e = Plus @@ (functionBody /@ Inactivate[{xs, f, ys}, D])}, Function[e] /; True],
-    HoldPattern[Times[xs___, f_Function, ys___]] /; FreeQ[{xs, ys}, _Function, {0, \[Infinity]}] :> With[{e = Times @@ (functionBody /@ Inactivate[{xs, f, ys}, D])}, Function[e] /; True]
-}], HoldAllComplete], expr]
-
-
-mapCoordinates[f_, v_Multivector] := Multivector[reduceFunctions[f[v["Coordinates"]]], v["GeometricAlgebra"]]
-
-
-coordinateTimes[f: Function[x_], Function[y_]] := reduceFunctions[Function[f[y]]]
-
-coordinateTimes[f_Function, y_] := f[y]
-
-coordinateTimes[x_, Function[y_]] := reduceFunctions[Function[GeometricProduct[x, y]]]
-
-coordinateTimes[v_, w_] := GeometricProduct[v, w]
-
-
-solveCoordinates[f_Function, A_GeometricAlgebra] := Module[{w, sol},
-    Block[{x},
-        w = Array[Subscript[x, #] &, A["Order"]];
-        sol = Solve[Thread[Normal[f[Multivector[w, A]]] == Normal[A["Zero"]]], w];
-        If[ Length[sol] == 0 || Not[FreeQ[sol, ComplexInfinity | Indeterminate, Infinity]],
-            $Failed,
-            w /. First[sol] /. Thread[w -> 0]
-        ]
-    ]
-]
-
-
-dotIndices[{}, __] := 1
-dotIndices[_, {}, _] := 1
-dotIndices[u_, v_, g_] := Det[Outer[g[[##]] &, u, v]]
-
-orderIndexWithSign[index_List, n_Integer] := With[{order = OrderingBy[index, Mod[#, n + 1] &]}, {index[[order]], Signature @ order}];
-
-contractBlade[index_, g_] := Block[{newIndex, squares},
-    squares = First[Reap[newIndex = SequenceReplace[index, {x_, x_} :> (Sow[x]; Nothing)]][[2]], {}];
-    {newIndex, Times @@ If[VectorQ[g], g[[squares]], g[[#, #]] & /@ squares]}
-]
-
-orderAndContract[index_, g_] := ({j, x} |-> {#1, x * #2} & @@ contractBlade[j, g]) @@ orderIndexWithSign[index, Length[g]]
-
-orderAndContractBlades[g_][indices_] := Merge[Total] @ KeyValueMap[{k, x} |-> #1 -> x * #2 & @@ orderAndContract[k, g], indices]
-
-multiplyIndices[uu : {___Integer}, vv : {___Integer}, g_ ? SquareMatrixQ] := Block[{
-	n = Length[g], x, y, u, v, j, k, sigma, tau
-},
-	{u, x} = orderAndContract[uu, g];
-	{v, y} = orderAndContract[vv, g];
-	j = Length[u];
-	k = Length[v];
-	sigma = Permutations[v];
-	tau = Permutations[u];
-	x * y * DeleteCases[0] @ orderAndContractBlades[g] @ Association @ Table[
-		Join[#2[[;; j - i]], #1[[i + 1 ;; k]]] ->
-			Signature[Mod[#1, n + 1]] * Signature[Mod[#2, n + 1]] * dotIndices[Reverse[#2[[j - i + 1 ;; j]]], #1[[;; i]], g] & @@@
-			Tuples[{
-				Select[sigma, Less @@ #[[;; i]] && Less @@ #[[i + 1 ;; k]] &],
-				Select[tau, Less @@ #[[;; j - i]] && Less @@ #[[j - i + 1 ;; j]] &]
-			}],
-		{i, 0, Min[j, k]}
-	]
-]
-
-multiplyIndices[u : {___Integer}, v : {___Integer}, g_ ? VectorQ] := <|#1 -> #2|> & @@ orderAndContract[Join[u, v], g]
-
-
-(* Boxes *)
+(* Formatting *)
 
 $DefaultMultivectorFormatFunction = Function[index,
     If[ index === {},
         "", (* don't display zero coefficient terms *)
-        Subscript["e", Row @ Riffle[If[# > 0, #, UnderBar[Abs[#]]] & /@ index, "\[InvisibleComma]"]]
+        Subscript["e", Row[If[# > 0, #, UnderBar[Abs[#]]] & /@ index, "\[InvisibleComma]"]]
     ]
 ]
 

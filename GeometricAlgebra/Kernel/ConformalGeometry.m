@@ -26,27 +26,38 @@ PackageExport[CGASphere]
 
 
 
-$CGA0 = GeometricAlgebra[4, 1, "Format" -> "CGA0", "FormatIndex" -> Function[$DefaultMultivectorFormatFunction[#] /. {4 -> "-", UnderBar[1] -> "+"}],
+$CGA0 = GeometricAlgebra[4, 1, "Format" -> "CGA0",
+    "FormatIndex" -> Function[$DefaultMultivectorFormatFunction[#] /. {4 -> "-", UnderBar[1] -> "+", Subscript[_, Row[{1, 2, 3, 4, UnderBar[1]}, _]] -> "\[DoubleStruckOne]"}],
     "VectorBasis" -> {{1, 0, 0, 0, 0}, {0, 1, 0, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 0, 0, 1}, {0, 0, 0, 1, 0}}
 ]
 
-$CGA = GeometricAlgebra[4, 1, "Format" -> "CGA", "FormatIndex" -> "Positive", "VectorBasis" -> {{1, 0, 0, 0, 0}, {0, 1, 0, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 0, - 1 / 2, 1}, {0, 0, 0, 1 / 2, 1}}];
-e = $CGA;
+$CGA = GeometricAlgebra[4, 1, "Format" -> "CGA",
+    "FormatIndex" -> Function[$DefaultMultivectorFormatFunction[#] /. {UnderBar[1] -> 5, Subscript[_, Row[{1, 2, 3, 4, UnderBar[1]}, _]] -> "\[DoubleStruckOne]"}],
+    "VectorBasis" -> {{1, 0, 0, 0, 0}, {0, 1, 0, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 0, - 1, 1 / 2}, {0, 0, 0, 1, 1 / 2}}
+]
+e = $CGA
 
 CGAQ[v_Multivector] := GeometricAlgebra[v] == $CGA
 CGAQ[___] := False
 
 
-(* Constructors *)
+(* Representations *)
 
-CGAFlatPoint[p : {_, _, _}] := p . {e[1, 5], e[2, 5], e[3, 5]} + e[4, 5]
+CGAFlatPoint[p : {_, _, _}, w_ : 1] := p . {e[1, 5], e[2, 5], e[3, 5]} + w e[4, 5]
 
-CGARoundPoint[p : {_, _, _}, r_ : 1] := p . {e[1], e[2], e[3]} + e[4] + (p . p + r ^ 2) / 2 e[5]
+CGALine[m : {_, _, _}, v : {_, _, _}] := m . e[{{2, 3, 5}, {3, 1, 5}, {1, 2, 5}}] + v . e[{{4, 1, 5}, {4, 2, 5}, {4, 3, 5}}]
 
-CGASphere[c : {_, _, _}, r_ : 1] := c . {e[4, 2, 3, 5], e[4, 3, 1, 5], e[4, 1, 2, 5]} - e[1, 2, 3, 4] - (c . c - r ^ 2) / 2 e[3, 2, 1, 5]
+CGAPlane[n : {_, _, _}, c_] := n . e[{{4, 2, 3, 5}, {4, 3, 1, 5}, {4, 1, 2, 5}}] + c e[3, 2, 1, 5]
+
+CGARoundPoint[p : {_, _, _}, r_ : 1, w_ : 1] := p . {e[1], e[2], e[3]} + w e[4] + (p . p + r ^ 2) / 2 e[5]
 
 CGADipole[p : {_, _, _}, n : {_, _, _}, r_ : 0] :=
-	n . {e[4, 1], e[4, 2], e[4, 3]} + Cross[p, n] . {e[2, 3], e[3, 1], e[1, 2]} + p . n CGAFlatPoint[p] - (p . p + r ^ 2) / 2 p . {e[1, 5], e[2, 5], e[3, 5]}
+	n . {e[4, 1], e[4, 2], e[4, 3]} + Cross[p, n] . {e[2, 3], e[3, 1], e[1, 2]} + p . n CGAFlatPoint[p] - (p . p + r ^ 2) / 2 n . {e[1, 5], e[2, 5], e[3, 5]}
+
+CGACircle[p : {_, _, _}, n : {_, _, _}, r_ : 1] :=
+    n . {e[4, 2, 3], e[4, 3, 1], e[4, 1, 2]} + Cross[p, n] . {e[4, 1, 5], e[4, 2, 5], e[4, 3, 5]} + p . n (p . {e[2, 3, 4], e[3, 1, 5], e[1, 2, 5]} - e[3, 2, 1]) - (p . p - r ^ 2) / 2 n . {e[2, 3, 5], e[3, 1, 5], e[1, 2, 5]}
+
+CGASphere[p : {_, _, _}, r_ : 1] := p . {e[4, 2, 3, 5], e[4, 3, 1, 5], e[4, 1, 2, 5]} - e[1, 2, 3, 4] - (p . p - r ^ 2) / 2 e[3, 2, 1, 5]
 
 
 (* Unary operations *)
@@ -76,12 +87,11 @@ RegionCGA[Point[r_]] := CGAFlatPoint[r]
 
 RegionCGA[(Line | InfiniteLine)[{p : {_, _, _}, q : {_, _, _}}]] := RegionCGA[InfiniteLine[p, q - p]]
 
-RegionCGA[InfiniteLine[p : {_, _, _}, d : {_, _, _}]] :=
-	Cross[p, d] . e[{{2, 3, 5}, {3, 1, 5}, {1, 2, 5}}] + d . e[{{4, 1, 5}, {4, 2, 5}, {4, 3, 5}}]
+RegionCGA[InfiniteLine[p : {_, _, _}, d : {_, _, _}]] := CGALine[Cross[p, d], d]
 
 RegionCGA[Hyperplane[n : {_, _, _}, p : {_, _, _}]] := RegionCGA[Hyperplane[n, Norm[p]]]
 
-RegionCGA[Hyperplane[n : {_, _, _}, c_]] := n . e[{{4, 2, 3, 5}, {4, 3, 1, 5}, {4, 1, 2, 5}}] + c e[3, 2, 1, 5]
+RegionCGA[Hyperplane[n : {_, _, _}, c_]] := CGAPlane[n, c]
 
 RegionCGA[Sphere[c : {_, _, _}, r_]] := CGASphere[c, r]
 

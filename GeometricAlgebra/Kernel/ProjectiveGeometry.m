@@ -39,7 +39,9 @@ PackageExport[PGAWeightExpansion]
 
 
 
-$PGA = e = GeometricAlgebra[3, 0, 1, "Format" -> "PGA"]
+$PGA = e = GeometricAlgebra[3, 0, 1, "Format" -> "PGA",
+    "FormatIndex" -> Function[$DefaultMultivectorFormatFunction[#] /. {Subscript[_, Row[{1, 2, 3, 4}, _]] -> "\[DoubleStruckOne]"}]
+]
 
 eps = e[4]
 i = e[1, 2, 3, 4]
