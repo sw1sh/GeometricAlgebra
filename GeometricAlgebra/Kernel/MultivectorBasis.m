@@ -42,9 +42,7 @@ MultivectorBasis[] := MultivectorBasis[All]
 
 A_GeometricAlgebra[] := Multivector[1, A]
 
-A_GeometricAlgebra[index_Integer] := Multivector[SparseArray[{{positiveIndex[index, A["Signature"]]} -> 1}, A["Order"]], A]
-
-A_GeometricAlgebra[indices__Integer] := GeometricProduct @@ A /@ {indices}
+A_GeometricAlgebra[indices__Integer] := Multivector[<|normalIndex[{indices}, A["Signature"]] -> 1|>, A]
 
 A_GeometricAlgebra[indices : {___Integer}] := A @@ indices
 
