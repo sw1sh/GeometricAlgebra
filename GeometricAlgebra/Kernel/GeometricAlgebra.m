@@ -88,6 +88,8 @@ A_GeometricAlgebra[opt_String] /; KeyExistsQ[Options[GeometricAlgebra], opt] := 
     Switch[opt,
         "VectorBasis",
         Replace[value, Automatic :> If[A["Dimension"] == 0, {{}}, IdentityMatrix[A["Dimension"]]]],
+        "FormatIndex",
+        Replace[value, Except[{{{___Integer} ..}, _}] :> {Automatic, value}],
         _,
         value
     ]
@@ -123,12 +125,14 @@ A_GeometricAlgebra["MetricSignature"] :=
 
 A_GeometricAlgebra["MetricMatrix"] := Map[Lookup[#, Key[{}], 0] &, A["MultiplicationTable"], {2}]
 
-A_GeometricAlgebra["Indices"] := A["Indices"] = Module[{
+A_GeometricAlgebra["Indices"] := A["Indices"] = Block[{
     p, q, r
 },
     {p, q, r} = A["Signature"];
     Subsets[Join[Range[p], p + Range[r], Range[- q, -1]]]
 ]
+
+A_GeometricAlgebra["FormatIndices"] := Replace[A["FormatIndex"][[1]], Automatic :> A["Indices"]]
 
 A_GeometricAlgebra["DualIndices"] := With[{i = Last @ A["Indices"]},
      Map[DeleteElements[i, #] &, A["Indices"]]

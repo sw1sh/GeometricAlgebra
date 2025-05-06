@@ -50,3 +50,5 @@ A_GeometricAlgebra["Basis", args___] := MultivectorBasis[A, args]
 
 A_GeometricAlgebra["PseudoBasis", args___] := A["Pseudoscalar"] ** # & /@ MultivectorBasis[A, args]
 
+A_GeometricAlgebra["FormatBasis"] := A[A["FormatIndices"]]
+

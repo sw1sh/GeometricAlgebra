@@ -681,7 +681,7 @@ $DefaultMultivectorFormatFunction = Function[index,
 ]
 
 
-geometricIndexFormat[A_GeometricAlgebra, index_] := With[{format = A["FormatIndex"]},
+geometricIndexFormat[A_GeometricAlgebra, index_] := With[{format = A["FormatIndex"][[2]]},
     Switch[format,
         Automatic,
         $DefaultMultivectorFormatFunction[index]
@@ -711,18 +711,20 @@ SetAttributes[holdSparseArray, {HoldAll}];
 holdSparseArray[a : SparseArray[{}, ___]] := a
 holdSparseArray[SparseArray[{xs__}, opts___]] := SparseArray[List @@ MapAt[Hold, Hold[xs], {All, 2}], opts]
 
-Multivector /: MakeBoxes[v : HoldPattern[Multivector[opts___]] /; MultivectorQ[Unevaluated[v]], _] :=
-    Module[{
-        A = GeometricAlgebra[v],
-        holdCoords, coords,
-        rules,
-        nonZeroPositions,
-        n,
-        indices,
-        display, interpret,
-        boxes,
-        optBoxes
-    },
+Multivector /: MakeBoxes[v : HoldPattern[Multivector[opts___]] /; MultivectorQ[Unevaluated[v]], _] := Block[{
+    A = GeometricAlgebra[v],
+    holdCoords, coords,
+    rules,
+    nonZeroPositions,
+    d, n,
+    indices, metric,
+    display, interpret,
+    boxes,
+    optBoxes
+},
+    d = A["Dimension"];
+    indices = A["FormatIndices"];
+    metric = A["Metric"];
     holdCoords = Lookup[List @@ RuleDelayed @@@ Hold[opts], "Coordinates", None, Hold];
     coords =  Which[
         MatchQ[holdCoords, Hold[SparseArray[Automatic, ___]]], (* don't hold elements of a SparseArray object *)
@@ -732,37 +734,37 @@ Multivector /: MakeBoxes[v : HoldPattern[Multivector[opts___]] /; MultivectorQ[U
         True,
         First @ MapAt[Hold, holdCoords, {1, All}] (* hold elements of a List *)
     ];
+    coords = Extract[coords, Lookup[PositionIndex[A["Indices"]], SortBy[#, Mod[#, d + 1] &] & /@ indices, Nothing]];
     rules = Cases[ArrayRules[coords], ({i_Integer} -> c_) /; If[c != Hold[0], True, False, True] :> {i, c}];
     optBoxes = ToBoxes /@ FilterRules[{opts}, Except["Coordinates"]];
     If[Length[optBoxes] > 0,
         optBoxes = Riffle[optBoxes, ",", {1, 2 Length[optBoxes], 2}]
     ];
     nonZeroPositions = rules[[All, 1]];
-    indices = A["Indices"][[nonZeroPositions]];
     n = Length @ nonZeroPositions;
     coords = Riffle[MakeBoxes /@ MapThread[Rule, {nonZeroPositions, Slot /@ Range[n]}], ","];
     boxes = ReleaseHold @ Map[
             Apply[
-                Function[{index, holdCoord}, If[ index > 1,
-                    Function[coord, Switch[coord,
+                Function[{i, holdCoord}, If[ i > 1,
+                    Function[x, With[{coord = x * orderAndContract[indices[[i]], metric][[2]]}, Switch[coord,
                         1, InterpretationBox["\[InvisibleSpace]", coord],
                         -1, InterpretationBox["-", coord],
                         _, If[MatchQ[coord, _Multivector | _Dual], RowBox[{"(", ToBoxes @ coord, ")"}], Parenthesize[coord, StandardForm, Times]]
-                    ], HoldAllComplete] @@ holdCoord,
+                    ]], HoldAllComplete] @@ holdCoord,
                     MakeBoxes @@ holdCoord
                 ], HoldRest]
             ],
             rules
         ];
     display = RowBox @
-    If[ Length[nonZeroPositions] > 0,
+    If[ n > 0,
         Riffle[
             MapThread[
                 RowBox[{
                     #1,
                     StyleBox[ToBoxes[geometricIndexFormat[A, #2]], "ShowStringCharacters" -> False]}
                 ] &,
-                { Slot /@ Range[n], indices}
+                { Slot /@ Range[n], indices[[nonZeroPositions]]}
             ],
         "+"
         ],
