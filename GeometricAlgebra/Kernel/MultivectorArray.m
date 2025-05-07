@@ -13,14 +13,11 @@ ShapeContract::usage = "Contract MultivectorArray indices";
 PackageScope["mapComponents"]
 
 
-Options[MultivectorArray] = {"Components" -> {}, "Shape" -> {}}
+Options[MultivectorArray] = {}
 
 
-multivectorArrayQ[HoldPattern[MultivectorArray[opts : OptionsPattern[]]]] := MatchQ[
-    Unevaluated[{opts}],
-    KeyValuePattern[{"Components" -> components_, "Shape" -> shape_}] /;
-        ArrayQ[Unevaluated[components], _, MultivectorQ] && MatchQ[Unevaluated[shape], {___Integer}]
-]
+multivectorArrayQ[HoldPattern[MultivectorArray[vs_, shape : {___Integer}]]] :=
+    DeleteCases[Dimensions[Unevaluated[vs]], 1] == DeleteCases[Abs[shape], 1] && (shape === {} || ArrayQ[Unevaluated[vs], _, MultivectorQ])
 
 multivectorArrayQ[___] := False
 
@@ -41,35 +38,29 @@ $MultivectorArrayProperties = {
 }
 
 
-MultivectorArray::badShape = "Specified shape `1` is not cmopatible with dimensions `2`";
-
-MultivectorArray[vs_, shape: {___Integer}] /; ArrayQ[vs, _, MatchQ[_MultivectorArray]] :=
+MultivectorArray[vs_, shape : {___Integer}] /; vs =!= {} && ArrayQ[vs, _, MatchQ[_MultivectorArray]] :=
     MultivectorArray[
         Map[#["Components"] &, vs, {ArrayDepth[vs]}],
-        Join[shape, First[MaximalBy[Flatten @ vs, #["Rank"] &]]["Shape"]]
+        Join[shape, First[Through[MaximalBy[Flatten @ vs, #["Rank"] &]["Shape"]], {}]]
     ]
 
-MultivectorArray[vs_, shape: {___Integer}] /; ArrayQ[vs, _, MatchQ[_Multivector]] := If[
-    DeleteCases[Dimensions[vs], 0] == Abs[DeleteCases[shape, 0]],
-    MultivectorArray["Components" -> vs, "Shape" -> shape],
-    Message[MultivectorArray::badShape, shape, Dimensions[vs]]; $Failed
-]
-
-MultivectorArray[vs_, shape_] /; ArrayQ[vs] :=
+MultivectorArray[vs_, shape_] /; vs =!= {} && ArrayQ[vs] && ! ArrayQ[vs, _, MultivectorQ] :=
     MultivectorArray[Map[If[MultivectorQ[#], #, Multivector[{#}, 0]] &, vs, {ArrayDepth[vs]}], Developer`ToList[shape]]
 
-MultivectorArray[vs_] /; ArrayQ[vs] := With[{dim = Dimensions[vs] /. 0 -> Nothing}, MultivectorArray[vs, dim * (-1) ^ Range[0, Length[dim] - 1]]]
+MultivectorArray[vs_] /; ArrayQ[vs] := With[{dim = Dimensions[vs]}, MultivectorArray[vs, dim * (-1) ^ Range[0, Length[dim] - 1]]]
 
-MultivectorArray[v_Multivector, shape_ : {}] := MultivectorArray["Components" -> v, "Shape" -> {}]
+MultivectorArray[x_] := MultivectorArray[x, {}]
 
 
-va_MultivectorArray[opt_String] /; KeyExistsQ[Options[va], opt] := Lookup[Options[va], opt]
+(HoldPattern[MultivectorArray[vs_, _]] ? MultivectorArrayQ)["Components"] := vs
+
+(HoldPattern[MultivectorArray[_, shape_]] ? MultivectorArrayQ)["Shape"] := shape
 
 
 va_MultivectorArray["Dimension"] := Times @@ Abs @ va["Shape"]
 
 
-va_MultivectorArray["Rank"] := Length @ va["Shape"]
+va_MultivectorArray["Rank"] := With[{shape = va["Shape"]}, If[shape === {}, 1, Length[shape]]]
 
 
 va_MultivectorArray["SquareQ"] := Equal @@ Dimensions[va]
@@ -168,7 +159,7 @@ transposeShape[shape_List, m_Integer <-> n_Integer] /; Length[shape] > 1 := MapA
 
 
 MultivectorArray /: Transpose[va_MultivectorArray, args___] :=
-    If[va["Rank"] > 1,
+    If[ va["Rank"] > 1,
         MultivectorArray[Transpose[va["Components"], args], transposeShape[va["Shape"], args]],
         MultivectorArray[va["Components"], transposeShape[va["Shape"]]]
     ]
@@ -192,15 +183,15 @@ ShapeContract[va_MultivectorArray] := FixedPoint[shapeContract, va]
 
 shapeGridBoxes[array_, shape_] := If[shape === {},
     Slot[array],
-    If[First[shape] > 0,
+    If[ First[shape] > 0,
         RowBox[{"(", GridBox[{shapeGridBoxes[#, Rest[shape]]} & /@ array],   ")"}],
         RowBox[{"[", GridBox[{shapeGridBoxes[#, Rest[shape]] & /@ array}], "]"}]
     ]
 ]
 
-MultivectorArray /: MakeBoxes[va: HoldPattern[MultivectorArray[opts : OptionsPattern[]]] /; MultivectorArrayQ[Unevaluated[va]], _] := Module[{
+MultivectorArray /: MakeBoxes[va_MultivectorArray /; MultivectorArrayQ[Unevaluated[va]], form_] := Module[{
     shape = va["Shape"],
-    components,
+    components = va["Components"],
     dims, size,
     boxes,
     display,
@@ -208,13 +199,13 @@ MultivectorArray /: MakeBoxes[va: HoldPattern[MultivectorArray[opts : OptionsPat
 },
     dims = Abs @ shape;
     size = Times @@ dims;
-    components = First @ Map[MakeBoxes, Lookup[List @@ RuleDelayed @@@ Hold[opts], "Components", None, Hold], {va["Rank"] + 1}];
-    boxes = If[va["Rank"] > 0, Flatten @ components, {components}];
-    display = If[shape === {}, Slot[1], shapeGridBoxes[ArrayReshape[Range[size], dims], shape]];
+    boxes = ToBoxes[#, form] & /@ Flatten[{components}];
+    display = Which[size == 0, RowBox[{"(", ")"}], shape === {}, Slot[1], True, shapeGridBoxes[ArrayReshape[Range[size], dims], shape]];
     interpret = RowBox[{"MultivectorArray", "[",
-        "\"Components\"", "->", If[va["Rank"] > 0, ToBoxes[ArrayReshape[Slot /@ Range[size], dims]], Slot[1]]
-            /. slot_String /; StringMatchQ[slot, "#" ~~ DigitCharacter..] :> ToExpression[slot], ",",
-        "\"Shape\"", "->", ToBoxes[shape],
+        If[va["Rank"] > 0, ToBoxes[ArrayReshape[Slot /@ Range[size], dims]], Slot[1]]
+            /. slot_String /; StringMatchQ[slot, "#" ~~ DigitCharacter ..] :> ToExpression[slot],
+        ",",
+        ToBoxes[shape, form],
     "]"}];
     TemplateBox[boxes,
         "MultivectorArray",

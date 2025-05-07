@@ -61,7 +61,7 @@ geometricAlgebraQ[HoldPattern[GeometricAlgebra[data_Association ? AssociationQ]]
 geometricAlgebraQ[___] := False
 
 
-GeometricAlgebraQ[A_GeometricAlgebra] := System`Private`HoldValidQ[A] || geometricAlgebraQ[Unevaluated[A]]
+GeometricAlgebraQ[g_GeometricAlgebra] := System`Private`HoldValidQ[g] || geometricAlgebraQ[Unevaluated[g]]
 
 GeometricAlgebraQ[___] := False
 
@@ -71,10 +71,8 @@ GeometricAlgebra[p_Integer, q_Integer: 0, r_Integer: 0, opts: OptionsPattern[]] 
 
 GeometricAlgebra[{p_Integer, q___Integer}, opts: OptionsPattern[]] := GeometricAlgebra[p, q, opts]
 
-GeometricAlgebra[A_GeometricAlgebra, opts: OptionsPattern[]] :=
-    GeometricAlgebra[Merge[Join[FilterRules[{opts}, Options[GeometricAlgebra]], Options[A]], First]]
-
-GeometricAlgebra[v_Multivector] := v["GeometricAlgebra"]
+GeometricAlgebra[g_GeometricAlgebra, opts: OptionsPattern[]] :=
+    GeometricAlgebra[Merge[Join[FilterRules[{opts}, Options[GeometricAlgebra]], Options[g]], First]]
 
 GeometricAlgebra[] := OptionValue[Multivector, "GeometricAlgebra"] (* current default GeometricAlgebra *)
 
@@ -84,10 +82,10 @@ GeometricAlgebra /: HoldPattern[Options[GeometricAlgebra[data_] ? GeometricAlgeb
 
 GeometricAlgebra /: HoldPattern[Options[GeometricAlgebra[data_] ? GeometricAlgebraQ, filter_]] := FilterRules[Normal[data], filter]
 
-A_GeometricAlgebra[opt_String] /; KeyExistsQ[Options[GeometricAlgebra], opt] := With[{value = OptionValue[{Options[A], Options[GeometricAlgebra]}, opt]},
+g_GeometricAlgebra[opt_String] /; KeyExistsQ[Options[GeometricAlgebra], opt] := With[{value = OptionValue[{Options[g], Options[GeometricAlgebra]}, opt]},
     Switch[opt,
         "VectorBasis",
-        Replace[value, Automatic :> If[A["Dimension"] == 0, {{}}, IdentityMatrix[A["Dimension"]]]],
+        Replace[value, Automatic :> If[g["Dimension"] == 0, {{}}, IdentityMatrix[g["Dimension"]]]],
         "FormatIndex",
         Replace[value, Except[{{{___Integer} ..}, _}] :> {Automatic, value}],
         _,
@@ -95,58 +93,58 @@ A_GeometricAlgebra[opt_String] /; KeyExistsQ[Options[GeometricAlgebra], opt] := 
     ]
 ]
 
-A_GeometricAlgebra["Metric"] := Replace[A["VectorBasis"], {
-    Automatic :> If[A["Dimension"] == 0, {{}}, DiagonalMatrix[A["MetricSignature"]]],
-    b_ ? SquareMatrixQ :> Transpose[b] . DiagonalMatrix[A["MetricSignature"]] . b,
-    b_ ? VectorQ :> A["MetricSignature"] * b ^ 2
+g_GeometricAlgebra["Metric"] := Replace[g["VectorBasis"], {
+    Automatic :> If[g["Dimension"] == 0, {{}}, DiagonalMatrix[g["MetricSignature"]]],
+    b_ ? SquareMatrixQ :> Transpose[b] . DiagonalMatrix[g["MetricSignature"]] . b,
+    b_ ? VectorQ :> g["MetricSignature"] * b ^ 2
 }]
 
-A_GeometricAlgebra["ComplexSignature"] := A["Signature"][[;; 2]]
+g_GeometricAlgebra["ComplexSignature"] := g["Signature"][[;; 2]]
 
-A_GeometricAlgebra["DualSignature"] := A["Signature"][[-1]]
+g_GeometricAlgebra["DualSignature"] := g["Signature"][[-1]]
 
-A_GeometricAlgebra["Dimension"] := Total @ A["Signature"]
+g_GeometricAlgebra["Dimension"] := Total @ g["Signature"]
 
-A_GeometricAlgebra["ComplexDimension"] := Total @ A["ComplexSignature"]
+g_GeometricAlgebra["ComplexDimension"] := Total @ g["ComplexSignature"]
 
-A_GeometricAlgebra["DualDimension"] := A["DualSignature"]
+g_GeometricAlgebra["DualDimension"] := g["DualSignature"]
 
-A_GeometricAlgebra["Order"] := 2 ^ A["Dimension"]
+g_GeometricAlgebra["Order"] := 2 ^ g["Dimension"]
 
-A_GeometricAlgebra["ComplexOrder"] := 2 ^ A["ComplexDimension"]
+g_GeometricAlgebra["ComplexOrder"] := 2 ^ g["ComplexDimension"]
 
-A_GeometricAlgebra["DualOrder"] := 2 ^ A["DualDimension"]
+g_GeometricAlgebra["DualOrder"] := 2 ^ g["DualDimension"]
 
-A_GeometricAlgebra["MetricSignature"] :=
+g_GeometricAlgebra["MetricSignature"] :=
     Module[{p, q, r},
-        {p, q, r} = A["Signature"];
+        {p, q, r} = g["Signature"];
         Join[ConstantArray[1, p], ConstantArray[0, r], ConstantArray[-1, q]]
     ]
 
-A_GeometricAlgebra["MetricMatrix"] := Map[Lookup[#, Key[{}], 0] &, A["MultiplicationTable"], {2}]
+g_GeometricAlgebra["MetricMatrix"] := Map[Lookup[#, Key[{}], 0] &, g["MultiplicationTable"], {2}]
 
-A_GeometricAlgebra["Indices"] := A["Indices"] = Block[{
+g_GeometricAlgebra["Indices"] := g["Indices"] = Block[{
     p, q, r
 },
-    {p, q, r} = A["Signature"];
+    {p, q, r} = g["Signature"];
     Subsets[Join[Range[p], p + Range[r], Range[- q, -1]]]
 ]
 
-A_GeometricAlgebra["FormatIndices"] := Replace[A["FormatIndex"][[1]], Automatic :> A["Indices"]]
+g_GeometricAlgebra["FormatIndices"] := Replace[g["FormatIndex"][[1]], Automatic :> g["Indices"]]
 
-A_GeometricAlgebra["DualIndices"] := With[{i = Last @ A["Indices"]},
-     Map[DeleteElements[i, #] &, A["Indices"]]
+g_GeometricAlgebra["DualIndices"] := With[{i = Last @ g["Indices"]},
+     Map[DeleteElements[i, #] &, g["Indices"]]
 ]
 
-A_GeometricAlgebra["PseudoscalarSquare"] := Block[{p, q, r},
-    {p, q, r} = A["Signature"];
+g_GeometricAlgebra["PseudoscalarSquare"] := Block[{p, q, r},
+    {p, q, r} = g["Signature"];
     If[r == 0, (- 1) ^ ((p - q) * (p - q - 1) / 2), 0]
 ]
 
 
-A_GeometricAlgebra["ComplexAlgebra"] := With[{n = Floor[A["ComplexDimension"] / 2], r = A["DualSignature"]},
-    If[ OddQ[A["ComplexDimension"]],
-        If[ A["PseudoscalarSquare"] == 1,
+g_GeometricAlgebra["ComplexAlgebra"] := With[{n = Floor[g["ComplexDimension"] / 2], r = g["DualSignature"]},
+    If[ OddQ[g["ComplexDimension"]],
+        If[ g["PseudoscalarSquare"] == 1,
             GeometricAlgebra[n + 1 + r, n + r],
             GeometricAlgebra[n + r, n + 1 + r]
         ],
@@ -155,45 +153,45 @@ A_GeometricAlgebra["ComplexAlgebra"] := With[{n = Floor[A["ComplexDimension"] / 
 ]
 
 
-middleIndex[A_GeometricAlgebra] := Module[{p, q},
-    {p, q} = A["ComplexSignature"];
+middleIndex[g_GeometricAlgebra] := Module[{p, q},
+    {p, q} = g["ComplexSignature"];
     Join[Range[p], Range[-q, -1]][[Ceiling[(p + q) / 2]]]
 ]
 
-A_GeometricAlgebra["ReIndices"] := Cases[A["Indices"], _List ? (FreeQ[#, middleIndex[A]] &)]
+g_GeometricAlgebra["ReIndices"] := Cases[g["Indices"], _List ? (FreeQ[#, middleIndex[g]] &)]
 
-A_GeometricAlgebra["ImIndexSigns"] := With[{i = Last @ A["Indices"]}, Rule @@ KeyMap[Reverse] @ multiplyIndices[i, #, A["Metric"]] & /@ A["ReIndices"]]
+g_GeometricAlgebra["ImIndexSigns"] := With[{i = Last @ g["Indices"]}, Rule @@ KeyMap[Reverse] @ multiplyIndices[i, #, g["Metric"]] & /@ g["ReIndices"]]
 
 
 GeometricAlgebra /: Equal[gs__GeometricAlgebra]:= Equal @@ (#["Signature"] & /@ {gs})
 
 
-A_GeometricAlgebra /; System`Private`HoldNotValidQ[A] && geometricAlgebraQ[Unevaluated[A]] := System`Private`SetNoEntry[System`Private`HoldSetValid[A]]
+g_GeometricAlgebra /; System`Private`HoldNotValidQ[g] && geometricAlgebraQ[Unevaluated[g]] := System`Private`SetNoEntry[System`Private`HoldSetValid[g]]
 
 
 (* Boxes *)
 
 
-GeometricAlgebra /: MakeBoxes[A_GeometricAlgebra /; GeometricAlgebraQ[Unevaluated[A]], form___] := With[{
-    box = Replace[A["Format"], Automatic :> SubscriptBox["\[DoubleStruckCapitalG]", RowBox @ Riffle[ToString /@ Replace[MapAt[Replace[0 -> Nothing], A["Signature"], {3}], {p_, 0} :> {p}], ","]]],
-    tooltip = RowBox[{"Geometric Algebra", ToBoxes[A["Signature"], form]}]
+GeometricAlgebra /: MakeBoxes[g_GeometricAlgebra /; GeometricAlgebraQ[Unevaluated[g]], form___] := With[{
+    box = Replace[g["Format"], Automatic :> SubscriptBox["\[DoubleStruckCapitalG]", RowBox @ Riffle[ToString /@ Replace[MapAt[Replace[0 -> Nothing], g["Signature"], {3}], {p_, 0} :> {p}], ","]]],
+    tooltip = RowBox[{"Geometric Algebra", ToBoxes[g["Signature"], form]}]
 },
-    InterpretationBox[box, A, Tooltip -> tooltip]
+    InterpretationBox[box, g, Tooltip -> tooltip]
 ]
 
 
 (* Utility functions *)
 
-lowerGeometricAlgebra[G_GeometricAlgebra] := Module[{
+lowerGeometricAlgebra[g_GeometricAlgebra] := Module[{
     p, q, r
 },
-    {p, q, r} = G["Signature"];
+    {p, q, r} = g["Signature"];
     GeometricAlgebra @ If[p >= q, {Max[p - 1, 0], q, r}, {p, q - 1, r}]
 ]
 
-higherGeometricAlgebra[G_GeometricAlgebra] := Module[{
+higherGeometricAlgebra[g_GeometricAlgebra] := Module[{
     p, q, r
 },
-    {p, q, r} = G["Signature"];
+    {p, q, r} = g["Signature"];
     GeometricAlgebra @ If[p > q, {p, q + 1, r}, {p + 1, q, r}]
 ]

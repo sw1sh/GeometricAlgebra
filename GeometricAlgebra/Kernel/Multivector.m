@@ -114,16 +114,11 @@ PackageScope["switchDualSide"]
 
 
 Options[Multivector] = {
-    "GeometricAlgebra" -> GeometricAlgebra[3],
-    "Coordinates" -> Automatic
+    "GeometricAlgebra" -> GeometricAlgebra[3]
 }
 
 
-multivectorQ[HoldPattern[Multivector[opts : OptionsPattern[]]]] := MatchQ[
-    Unevaluated[{opts}],
-    KeyValuePattern[{"Coordinates" -> coords_, "GeometricAlgebra" -> A_}] /;
-        GeometricAlgebraQ[Unevaluated[A]] && VectorQ[coords] && Length[coords] == A["Order"]
-]
+multivectorQ[HoldPattern[Multivector[coords_ ? VectorQ, g_ ? GeometricAlgebraQ]]] := Length[coords] == g["Order"]
 
 multivectorQ[___] := False
 
@@ -169,77 +164,78 @@ $MultivectorProperties = {
 Multivector::truncCoord = "Coordinates are incompatible with `1`. Number of coordinates should be less than `2`. Truncating excessive coordinates.";
 
 
-Multivector[coords_ ? VectorQ, opts: OptionsPattern[]] :=
-    With[{A = GeometricAlgebra @ OptionValue["GeometricAlgebra"]},
-        If[ Length @ coords > A["Order"],
-            Message[Multivector::truncCoord, A, A["Order"]]
-        ];
-        Multivector["Coordinates" -> SparseArray[coords, A["Order"]], "GeometricAlgebra" -> A]
-    ]
-
-
-Multivector[assoc_Association, opts : OptionsPattern[]] := With[{A = GeometricAlgebra[OptionValue["GeometricAlgebra"]]},
-    Multivector[Lookup[KeyValueMap[{index, x} |-> #1 -> x * #2 & @@ orderAndContract[normalIndex[index, A["Signature"]], A["Metric"]], assoc], A["Indices"], 0], opts]
+Multivector[coords_ ? VectorQ, g_ ? GeometricAlgebraQ] := With[{len = Length[coords], n = g["Order"]}, (
+    If[len > n, Message[Multivector::truncCoord, g, n]];
+    Multivector[SparseArray[coords, n], g]
+) /; len != n
 ]
 
 
-Multivector[x : Except[_Association | _ ? VectorQ | _ ? NumericQ | OptionsPattern[]], opts: OptionsPattern[]] := Multivector[{x}, opts]
+Multivector[assoc_Association, g_ ? GeometricAlgebraQ] :=
+    Multivector[Lookup[KeyValueMap[{index, x} |-> #1 -> x * #2 & @@ orderAndContract[normalIndex[index, g["Signature"]], g["Metric"]], assoc], g["Indices"], 0], g]
 
+Multivector[x_ ? NumericQ, g_ ? GeometricAlgebraQ] := NumberMultivector[x, g]
 
-NumberMultivector[x_, A_GeometricAlgebra] :=
-    Multivector[SparseArray[{1 -> Re[x], -1 -> If[A["PseudoscalarSquare"] == 1, I, 1] Im[x]}, A["ComplexOrder"]], A]
+Multivector[x : Except[_ ? VectorQ | _Multivector], g_ ? GeometricAlgebraQ] := Multivector[{x}, g]
 
-NumberMultivector[v_Multivector, A_GeometricAlgebra] :=
-    Multivector[SparseArray[{1 -> v["Scalar"], -1 -> If[v["PseudoscalarSquare"] != A["PseudoscalarSquare"], I, 1] v["Pseudoscalar"]}, A["ComplexOrder"]], A]
+Multivector[x_, opts : OptionsPattern[]] := Multivector[x, OptionValue["GeometricAlgebra"]]
 
-NumberMultivector[x_] := NumberMultivector[x, GeometricAlgebra[0, 1]]
+Multivector[x_, args : Except[_GeometricAlgebra] ..] := Multivector[x, GeometricAlgebra[args]]
 
+Multivector[x, p_Integer, q_Integer: 0, r_Integer: 0] := Multivector[x, GeometricAlgebra[p, q, r]]
 
-MultivectorNumber[v_Multivector, A_GeometricAlgebra] :=
-    Multivector[SparseArray[{1 -> v["Scalar"], -1 -> v["Pseudoscalar"]}, A["ComplexOrder"]], A]
-
-MultivectorNumber[v_Multivector] := MultivectorNumber[v, GeometricAlgebra @ If[v["PseudoscalarSquare"] == 1, {1, 0}, {0, 1}]]
-
-MultivectorNumber[x_, ___] := x
-
-
-ComplexMultivector[v_Multivector] := ComplexMultivector[v, v["GeometricAlgebra"]]
-
-ComplexMultivector[v_Multivector, A_GeometricAlgebra] := ConvertGeometricAlgebra[MultivectorNumber[v, A["ComplexAlgebra"]], A]
-
-
-Multivector[x_ ? NumericQ, opts: OptionsPattern[]] := NumberMultivector[x, OptionValue["GeometricAlgebra"]]
-
-Multivector[v_Multivector, opts: OptionsPattern[]] := Multivector[mergeOptions[{{opts}, Options[v]}]]
-
-Multivector[v_Multivector, args__] := Multivector[v, GeometricAlgebra[args]]
-
-Multivector[arg: Except[_Multivector], A_GeometricAlgebra] := Multivector[arg, "GeometricAlgebra" -> A]
-
-Multivector[arg_, p_Integer, q_Integer: 0, r_Integer: 0] := Multivector[arg, GeometricAlgebra[p, q, r]]
-
-Multivector[arg_, {p_Integer, q_Integer: 0, r_Integer: 0}] := Multivector[arg, p, q, r]
+Multivector[x_, {p_Integer, q_Integer: 0, r_Integer: 0}] := Multivector[x, p, q, r]
 
 Multivector[] := Multivector[{}]
 
 
-v_Multivector[key : {___Integer}] := #2 Lookup[v["Association"], Key[#1], 0] & @@ orderIndexWithSign[normalIndex[key, v["Signature"]], v["Dimension"]]
+NumberMultivector[x_, g_GeometricAlgebra] :=
+    Multivector[SparseArray[{1 -> Re[x], -1 -> If[g["PseudoscalarSquare"] == 1, I, 1] Im[x]}, g["ComplexOrder"]], g]
+
+NumberMultivector[v_Multivector, g_GeometricAlgebra] :=
+    Multivector[SparseArray[{1 -> v["Scalar"], -1 -> If[v["PseudoscalarSquare"] != g["PseudoscalarSquare"], I, 1] v["Pseudoscalar"]}, g["ComplexOrder"]], g]
+
+NumberMultivector[x_, args__] := NumberMultivector[x, GeometricAlgebra[args]]
+
+NumberMultivector[x_] := NumberMultivector[x, GeometricAlgebra[0, 1]]
+
+
+MultivectorNumber[v_Multivector, g_GeometricAlgebra] :=
+    Multivector[SparseArray[{1 -> v["Scalar"], -1 -> v["Pseudoscalar"]}, g["ComplexOrder"]], g]
+
+MultivectorNumber[v_Multivector] := MultivectorNumber[v, If[v["PseudoscalarSquare"] == 1, {1, 0}, {0, 1}]]
+
+MultivectorNumber[x_, args__] := MultivectorNumber[x, GeometricAlgebra[args]]
+
+MultivectorNumber[x_, ___] := x
+
+
+ComplexMultivector[v_Multivector] := ComplexMultivector[v, GeometricAlgebra[v]]
+
+ComplexMultivector[v_Multivector, g_GeometricAlgebra] := ConvertGeometricAlgebra[MultivectorNumber[v, g["ComplexAlgebra"]], g]
+
+
+v_Multivector[key : {___Integer}] := #2 Lookup[v["Association"], Key[#1], 0] & @@ orderIndexWithSign[normalIndex[DeleteCases[key, 0], v["Signature"]], v["Dimension"]]
 
 v_Multivector[key___Integer] := v[{key}]
 
 v_Multivector[keys : {{___Integer} ..}] := v /@ keys
 
 
-v_Multivector[f_] := mapCoordinates[f, v]
 
-
-
-Multivector /: v_Multivector[opt: Alternatives @@ Keys @ Options @ Multivector] := Lookup[Options[v], opt]
-
-Multivector /: v_Multivector[opt: Alternatives @@ $GeometricAlgebraProperties] := v["GeometricAlgebra"][opt]
-
+(HoldPattern[Multivector[coords_, _]] ? MultivectorQ)["Coordinates"] := coords
 
 Multivector /: Normal[v_Multivector] := Normal @ v["Coordinates"]
+
+
+(HoldPattern[Multivector[_, g_]] ? MultivectorQ)["GeometricAlgebra"] := g
+
+GeometricAlgebra[v_Multivector] := v["GeometricAlgebra"]
+
+(v_Multivector ? MultivectorQ)[prop : Alternatives @@ $GeometricAlgebraProperties, args___] := GeometricAlgebra[v][prop, args]
+
+
+v_Multivector[f_] := mapCoordinates[f, v]
 
 
 _Multivector["Properties"] := $MultivectorProperties
@@ -262,9 +258,9 @@ v_Multivector["CoordinateDimension"] := Max[DualDimension /@ v["Coordinates"]]
 v_Multivector["Association"] := Association @ Map[Apply[Function[{x, y}, v["Indices"][[First[x]]] -> y, HoldAllComplete]], Most @ ArrayRules[v["Coordinates"]]]
 
 
-v_Multivector["Span"] := MapThread[GeometricProduct, {v["Coordinates"], MultivectorBasis[v["GeometricAlgebra"]]}]
+v_Multivector["Span"] := MapThread[GeometricProduct, {v["Coordinates"], v["Basis"]}]
 
-v_Multivector["Span", n_Integer] := MapThread[GeometricProduct, {v["Coordinates"][[indexSpan[v, n]]], MultivectorBasis[v["GeometricAlgebra"], n]}]
+v_Multivector["Span", n_Integer] := MapThread[GeometricProduct, {v["Coordinates"][[indexSpan[v, n]]], v["Basis", n]}]
 
 v_Multivector["Span", {ns__Integer}] := Catenate[v["Span", #] & /@ {ns}]
 
@@ -272,7 +268,7 @@ v_Multivector["Span", {ns__Integer}] := Catenate[v["Span", #] & /@ {ns}]
 v_Multivector["Flatten"] := Inner[GeometricProduct, v["Coordinates"], v["Basis"]]
 
 
-v_Multivector["Real"] := v[Re] + v["GeometricAlgebra"]["Pseudoscalar"] ** v[Im]
+v_Multivector["Real"] := v[Re] + GeometricProduct[GeometricAlgebra[v]["Pseudoscalar"], v[Im]]
 
 
 v_Multivector["Numeric"] := If[v["ComplexDimension"] > 0 && v["PseudoscalarSquare"] == 1,
@@ -281,130 +277,119 @@ v_Multivector["Numeric"] := If[v["ComplexDimension"] > 0 && v["PseudoscalarSquar
 ]
 
 
-v_Multivector["ComplexCoordinates"] := Module[{
-    A, re, im
+v_Multivector["ComplexCoordinates"] := Block[{
+    g, re, im
 },
-    A = v["GeometricAlgebra"];
+    g = GeometricAlgebra[v];
 
-    If[ OddQ[A["Dimension"]],
-        re = Lookup[v["Association"], A["ReIndices"], 0];
-        im = Lookup[(v ** A["Pseudoscalar"])["Association"], A["ReIndices"], 0];
+    If[ OddQ[g["Dimension"]],
+        re = Lookup[v["Association"], g["ReIndices"], 0];
+        im = Lookup[GeometricProduct[v, g["Pseudoscalar"]]["Association"], g["ReIndices"], 0];
 
-        re + A["PseudoscalarSquare"] im ** A["Pseudoscalar"],
-
-        (* Else *)
+        re + GeometricProduct[g["PseudoscalarSquare"] im, g["Pseudoscalar"]]
+        ,
+        (* Even dimension *)
         v["Coordinates"]
     ]
 ]
 
-
-v : Multivector[opts: OptionsPattern[]] /; ! multivectorQ[Unevaluated[v]] := With[{
-    coords = Lookup[{opts}, "Coordinates"],
-    A = GeometricAlgebra[Lookup[{opts}, "GeometricAlgebra"]]
-},
-    With[{
-        newOpts = Sequence[
-            "Coordinates" -> If[VectorQ[coords], If[Length[coords] != A["Order"], PadRight[coords, A["Order"]], coords], SparseArray[{}, A["Order"]]],
-            "GeometricAlgebra" -> A
-        ]
-    },
-        Multivector[newOpts]
-    ]
-]
 
 v_Multivector /; System`Private`HoldNotValidQ[v] && multivectorQ[Unevaluated[v]] := System`Private`SetNoEntry[System`Private`HoldSetValid[v]]
 
 
 (* Coersion *)
 
-Multivector[v_Multivector, A_GeometricAlgebra] /; v["GeometricAlgebra"] === A := v
+Multivector[v_Multivector, g_GeometricAlgebra] /; GeometricAlgebra[v] === g := v
 
-Multivector[v_Multivector, A_GeometricAlgebra] := Multivector[
-    SparseArray[
-        Map[Apply[With[{
-                pos = Position[A["Indices"], Extract[v["GeometricAlgebra"]["Indices"], #1]]
-            },
-                If[Length[pos] > 0, pos[[1]] -> #2, Nothing]
-            ] &],
-            Most @ ArrayRules @ v["Coordinates"]
+Multivector[v_Multivector, g_GeometricAlgebra] := With[{index = PositionIndex[g["Indices"]], indices = v["Indices"]},
+    Multivector[
+        SparseArray[
+            MapApply[
+                With[{
+                    pos = Lookup[index, Key[Extract[indices, #1]]]
+                },
+                    If[MissingQ[pos], Nothing, pos -> #2]
+                ] &,
+                Most @ ArrayRules @ v["Coordinates"]
+            ],
+            g["Order"]
         ],
-        A["Order"]
-    ],
-    A
+        g
+    ]
 ]
-
 
 (* Addition *)
 
-zeroMultivector[A_GeometricAlgebra] := Multivector[{}, A]
-zeroMultivector[v_Multivector] := zeroMultivector[v["GeometricAlgebra"]]
+zeroMultivector[g_GeometricAlgebra] := Multivector[{}, g]
+
+zeroMultivector[v_Multivector] := zeroMultivector[GeometricAlgebra[v]]
 
 
-Multivector /: Plus[vs__Multivector] /; Length[{vs}] > 1 := Module[{
-    A = mergeGeometricAlgebra[vs],
+Multivector /: Plus[vs__Multivector] /; Length[{vs}] > 1 := Block[{
+    g = mergeGeometricAlgebra[vs],
     ws
 },
-    ws = Multivector[#, A] & /@ {vs};
+    ws = Multivector[#, g] & /@ {vs};
     Multivector[
         Total[#["Coordinates"] & /@ ws],
-        A
+        g
     ][Map[reduceFunctions]]
 ]
 
-Multivector /: Plus[x: Except[_Multivector], v_Multivector] := x identityMultivector[v] + v
+Multivector /: Plus[x : Except[_Multivector], v_Multivector]:= x * identityMultivector[v] + v
 
 
-A_GeometricAlgebra["Zero"] := zeroMultivector[A]
+g_GeometricAlgebra["Zero"] := zeroMultivector[g]
 
 
 (* Scalar multiplication *)
 
-identityMultivector[A_GeometricAlgebra] := Multivector[{1}, A]
+identityMultivector[g_GeometricAlgebra] := Multivector[{1}, g]
 
-identityMultivector[v_Multivector] := identityMultivector[v["GeometricAlgebra"]]
+identityMultivector[v_Multivector] := identityMultivector[GeometricAlgebra[v]]
 
 
-Multivector /: Times[x: Except[_Multivector], v_Multivector] := mapCoordinates[x # &, v]
+Multivector /: Times[x : Except[_Multivector], v_Multivector] := mapCoordinates[x * # &, v]
 
 
 v_Multivector["Scalar"] := v["Coordinate", 1]
 
 
-v_Multivector["Pseudoscalar"] := v["Coordinate", -1]
+v_Multivector["Pseudoscalar"] := If[v["Dimension"] > 0, v["Coordinate", -1], 0]
 
 
-A_GeometricAlgebra["Identity"] := identityMultivector[A]
+g_GeometricAlgebra["Identity"] := identityMultivector[g]
 
 
 (* Geometric Product *)
 
-A_GeometricAlgebra["BasisMatrix"] := A["BasisMatrix"] = ExteriorMatrix[A["VectorBasis"]]
+g_GeometricAlgebra["BasisMatrix"] := g["BasisMatrix"] = ExteriorMatrix[g["VectorBasis"]]
 
-A_GeometricAlgebra["InverseBasisMatrix"] := A["InverseBasisMatrix"] = ExteriorMatrix[MatrixInverse[A["VectorBasis"]]]
+g_GeometricAlgebra["InverseBasisMatrix"] := g["InverseBasisMatrix"] = ExteriorMatrix[MatrixInverse[g["VectorBasis"]]]
 
-A_GeometricAlgebra["MultiplicationTensor"] := A["MultiplicationTensor"] = With[{indices = A["Indices"], metric = A["MetricSignature"]}, {index = PositionIndex[indices]},
+g_GeometricAlgebra["MultiplicationTensor"] := g["MultiplicationTensor"] = With[{indices = g["Indices"], metric = g["MetricSignature"]}, {index = PositionIndex[indices]},
     SparseArray[Outer[SparseArray[Normal @ KeyMap[Lookup[index, Key[#]] &, multiplyIndices[#1, #2, metric]], Length[indices]] &, indices, indices, 1]]
 ]
 
-A_GeometricAlgebra["MetricMultiplicationTensor"] := A["MetricMultiplicationTensor"] = With[{a = Transpose @ A["BasisMatrix"], b = Transpose @ A["InverseBasisMatrix"]},
-    SparseArray[Transpose[b . Transpose[b . A["MultiplicationTensor"]]] . a]
+g_GeometricAlgebra["MetricMultiplicationTensor"] := g["MetricMultiplicationTensor"] = With[{a = Transpose @ g["BasisMatrix"], b = Transpose @ g["InverseBasisMatrix"]},
+    SparseArray[Transpose[b . Transpose[b . g["MultiplicationTensor"]]] . a]
 ]
 
-A_GeometricAlgebra["ExomorphismMatrix"] := A["ExomorphismMatrix"] =
-    SparseArray @ With[{metric = A["Metric"]}, Wedge[##]["Coordinates"] & @@@ Replace[Map[Grade[Transpose[metric[[All, #]]], 1, A] &, A["Indices"], {2}], {} -> {A[]}, 1]]
+g_GeometricAlgebra["ExomorphismMatrix"] := g["ExomorphismMatrix"] =
+    SparseArray @ With[{metric = g["Metric"]}, Wedge[##]["Coordinates"] & @@@ Replace[Map[Grade[Transpose[metric[[All, #]]], 1, g] &, g["Indices"], {2}], {} -> {g[]}, 1]]
 
-A_GeometricAlgebra["AntiExomorphismMatrix"] := With[{perm = FindPermutation[A["Indices"], A["DualIndices"]]},
-    Permute[Transpose[Permute[A["ExomorphismMatrix"], perm]], perm]
+g_GeometricAlgebra["AntiExomorphismMatrix"] := With[{perm = FindPermutation[g["Indices"], g["DualIndices"]]},
+    Permute[Transpose[Permute[g["ExomorphismMatrix"], perm]], perm]
 ]
     
 
-(* A_GeometricAlgebra["AntiExomorphismMatrix"] := A["AntiExomorphismMatrix"] = Det[A["Metric"]] * SparseArray[PseudoInverse[A["ExomorphismMatrix"]]] *)
+(* g_GeometricAlgebra["AntiExomorphismMatrix"] := g["AntiExomorphismMatrix"] = Det[g["Metric"]] * SparseArray[PseudoInverse[g["ExomorphismMatrix"]]] *)
 
-Bulk[v_Multivector] := With[{A = GeometricAlgebra[v]}, Multivector[A["ExomorphismMatrix"] . v["Coordinates"], A]]
+Bulk[v_Multivector] := With[{g = GeometricAlgebra[v]}, Multivector[g["ExomorphismMatrix"] . v["Coordinates"], g]]
 
 v_Multivector["Bulk"] := Bulk[v]
 
-Weight[v_Multivector] := With[{A = GeometricAlgebra[v]}, Multivector[A["AntiExomorphismMatrix"] . v["Coordinates"], A]]
+Weight[v_Multivector] := With[{g = GeometricAlgebra[v]}, Multivector[g["AntiExomorphismMatrix"] . v["Coordinates"], g]]
 
 v_Multivector["Weight"] := Weight[v]
 
@@ -431,25 +416,25 @@ switchDualSide[v_Multivector] :=
         v["GeometricAlgebra"]
     ]
 
-A_GeometricAlgebra["MultiplicationTable"] := ResourceFunction["GridTableForm"][
-    Map[Multivector[#, A] &, A["MultiplicationTensor"], {2}],
-    TableHeadings -> {A["Basis"], A["Basis"]}
+g_GeometricAlgebra["MultiplicationTable"] := ResourceFunction["GridTableForm"][
+    Map[Multivector[#, g] &, g["MultiplicationTensor"], {2}],
+    TableHeadings -> {g["Basis"], g["Basis"]}
 ]
 
-A_GeometricAlgebra["MetricMultiplicationTable"] := ResourceFunction["GridTableForm"][
-    Map[Multivector[#, A] &, A["MetricMultiplicationTensor"], {2}],
-    TableHeadings -> {A["Basis"], A["Basis"]}
+g_GeometricAlgebra["MetricMultiplicationTable"] := ResourceFunction["GridTableForm"][
+    Map[Multivector[#, g] &, g["MetricMultiplicationTensor"], {2}],
+    TableHeadings -> {g["Basis"], g["Basis"]}
 ]
 
 
 GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric product of multivectors v and w";
 
 GeometricProduct[v_Multivector, w_Multivector] := With[{
-    A = mergeGeometricAlgebra[v, w]
+    g = mergeGeometricAlgebra[v, w]
 },
     Multivector[
-        Flatten[Outer[coordinateTimes, Multivector[v, A]["Coordinates"], Multivector[w, A]["Coordinates"], 1], 1] . Flatten[A["MetricMultiplicationTensor"], 1],
-        A
+        Flatten[Outer[coordinateTimes, Multivector[v, g]["Coordinates"], Multivector[w, g]["Coordinates"], 1], 1] . Flatten[g["MetricMultiplicationTensor"], 1],
+        g
     ][Map[reduceFunctions]]
 ]
 
@@ -463,10 +448,10 @@ GeometricProduct[] := Multivector[{1}, {0, 0}]
 Multivector /: Times[vs__Multivector] := GeometricProduct[vs]
 
 
-Multivector /: Power[v_Multivector, n_Integer] := If[n < 0, Power[Inverse[v], -n], Nest[# ** v &, identityMultivector[v], n]]
+Multivector /: Power[v_Multivector, n_Integer] := If[n < 0, Power[Inverse[v], -n], Nest[GeometricProduct[#, v] &, identityMultivector[v], n]]
 
 
-Multivector /: Equal[vs__Multivector] := With[{A = GeometricAlgebra[First[{vs}]]}, And @@ MapThread[Equal, Normal /@ Map[Multivector[#, A] &, {vs}]]]
+Multivector /: Equal[vs__Multivector] := With[{g = GeometricAlgebra[First[{vs}]]}, And @@ MapThread[Equal, Normal /@ Map[Multivector[#, g] &, {vs}]]]
 
 
 Multivector /: (f_Symbol ? elementwiseFunctionQ)[v_Multivector, args___] := v[Map[f[#, args] &]]
@@ -479,13 +464,15 @@ SetAttributes[Multivector, NHoldAll]
 
 (* Tensor product *)
 
-Multivector /: TensorProduct[v_Multivector, w_Multivector] := Module[{
+Multivector /: TensorProduct[v_Multivector, w_Multivector] := Block[{
     p, q, r
 },
     {p, q, r} = v["Signature"];
-    v ** Multivector[
-        KeyMap[# /. {i_ ? Positive :> i + p, i_ ? Negative :> i - q} &, w["Association"]],
-        GeometricAlgebra[{p, q} + w["Signature"]]
+    GeometricProduct[v,
+        Multivector[
+            KeyMap[# /. {i_ ? Positive :> i + p, i_ ? Negative :> i - q} &, w["Association"]],
+            GeometricAlgebra[{p, q} + w["Signature"]]
+        ]
     ]
 ]
 
@@ -517,12 +504,12 @@ ScalarProduct[vs__Multivector] := Grade[GeometricProduct[vs], 0]
 
 AntiDot[vs__Multivector] := OverBar[Dot @@ UnderBar /@ {vs}]
 
-InnerProduct[v_Multivector, w_Multivector] := With[{A = mergeGeometricAlgebra[v, w]},
-    Multivector[Multivector[w, A]["Coordinates"] . A["ExomorphismMatrix"] . Multivector[v, A]["Coordinates"], A]
+InnerProduct[v_Multivector, w_Multivector] := With[{g = mergeGeometricAlgebra[v, w]},
+    Multivector[Multivector[w, g]["Coordinates"] . g["ExomorphismMatrix"] . Multivector[v, g]["Coordinates"], g]
 ]
 
-AntiInnerProduct[v_Multivector, w_Multivector] := With[{A = mergeGeometricAlgebra[v, w]},
-    Grade[{Multivector[w, A]["Coordinates"] . A["AntiExomorphismMatrix"] . Multivector[v, A]["Coordinates"]}, -1, A]
+AntiInnerProduct[v_Multivector, w_Multivector] := With[{g = mergeGeometricAlgebra[v, w]},
+    Grade[{Multivector[w, g]["Coordinates"] . g["AntiExomorphismMatrix"] . Multivector[v, g]["Coordinates"]}, -1, g]
 ]
 
 (* AntiInnerProduct[v_Multivector, w_Multivector] := OverBar[InnerProduct[UnderBar[v], UnderBar[w]]] *)
@@ -539,29 +526,33 @@ WeightContraction[v_Multivector, w_Multivector] := Vee[v, RightWeightDual[w]]
 
 MultivectorDistance[v_Multivector, w_Multivector] := Vee[v, w] + WeightNorm[Wedge[v, Attitude[w]]]
 
-MultivectorCosAngle[v_Multivector, w_Multivector] := WeightContraction[v, w] + WeightNorm[v] ** WeightNorm[w]
+MultivectorCosAngle[v_Multivector, w_Multivector] := WeightContraction[v, w] + GeometricProduct[WeightNorm[v], WeightNorm[w]]
 
 
 (* Inversions *)
 
-reverseIndexCoordinate[A_GeometricAlgebra, indexPos_, x_] := Module[{newIndex, sign}, 
-    {newIndex, sign} = orderIndexWithSign[Reverse[Extract[A["Indices"], indexPos]], A["Dimension"]];
+reverseIndexCoordinate[g_GeometricAlgebra, indexPos_, x_] := Block[{newIndex, sign}, 
+    {newIndex, sign} = orderIndexWithSign[Reverse[Extract[g["Indices"], indexPos]], g["Dimension"]];
     newIndex -> sign x
 ]
 
-v_Multivector["Reverse"] := Multivector[
-    Association[reverseIndexCoordinate[v["GeometricAlgebra"], #1, #2] & @@@ Most @ ArrayRules @ v["Coordinates"]],
-    v["GeometricAlgebra"]
+v_Multivector["Reverse"] := With[{g = GeometricAlgebra[v]},
+    Multivector[
+        Association[reverseIndexCoordinate[g, #1, #2] & @@@ Most @ ArrayRules @ v["Coordinates"]],
+        g
+    ]
 ]
 
 OverTilde[v_Multivector] ^:= v["Reverse"]
+
+Multivector /: Reverse[v_Multivector] := v["Reverse"]
 
 AntiReverse[v_Multivector] := v["Reverse"]["DoubleComplement"]
 
 v_Multivector["AntiReverse"] := AntiReverse[v]
 
 
-Involute[v_Multivector] := mapCoordinates[((-1) ^ # & @* Length /@ v["GeometricAlgebra"]["Indices"]) # &, v]
+Involute[v_Multivector] := mapCoordinates[((-1) ^ # & @* Length /@ v["Indices"]) # &, v]
 
 v_Multivector["Involute"] = Involute[v]
 
@@ -600,13 +591,13 @@ Multivector /: OverBar[v_Multivector] := v["RightComplement"]
 v_Multivector["DoubleComplement"] := v["RightComplement"]["RightComplement"]
 
 
-Multivector /: Projection[v_Multivector, w_Multivector] := w ** (v . w)
+Multivector /: Projection[v_Multivector, w_Multivector] := GeometricProduct[w, v . w]
 
 
-Rejection[v_Multivector, w_Multivector] := (v \[Wedge] w) ** w
+Rejection[v_Multivector, w_Multivector] := GeometricProduct[Wedge[v, w], w]
 
 
-v_Multivector["Squared"] = v ** v["Involute"]
+v_Multivector["Squared"] = GeometricProduct[v, v["Involute"]]
 
 
 (* Inverse *)
@@ -615,7 +606,7 @@ Multivector /: Inverse[v_Multivector] := MultivectorFunction[# ^ -1 &, v]
 
 v_Multivector["Inverse"] = Inverse[v]
 
-Multivector /: Divide[v_, w_Multivector] := Multivector[v, w["GeometricAlgebra"]] ** Inverse[w]
+Multivector /: Divide[v_, w_Multivector] := GeometricProduct[Multivector[v, w["GeometricAlgebra"]], Inverse[w]]
 
 
 (* Root and Power *)
@@ -630,7 +621,6 @@ Multivector /: Power[v_Multivector, x_] := MultivectorPower[v, x]
 
 
 (* Grade *)
-
 
 Grade[v_Multivector, n_Integer] /; n < 0 || n > v["Dimension"] := zeroMultivector[v]
 
@@ -670,31 +660,26 @@ v_Multivector["Grade", arg_] := Grade[v, arg]
 
 (* Special multivectors *)
 
-A_GeometricAlgebra["Scalar"] := Multivector[1, A]
+g_GeometricAlgebra["Scalar"] := Multivector[1, g]
 
 
-pseudoscalar[A_GeometricAlgebra] := Block[{
-    p, q, r
-},
-    {p, q, r} = A["Signature"];
-    Multivector[SparseArray[{{-1} -> 1}, A["Order"]], A]
-]
+pseudoscalar[g_GeometricAlgebra] := Multivector[SparseArray[{{-1} -> 1}, g["Order"]], g]
 
-pseudoscalar[v_Multivector] := pseudoscalar[v["GeometricAlgebra"]]
+pseudoscalar[v_Multivector] := pseudoscalar[GeometricAlgebra[v]]
 
 pseudoscalar[] := pseudoscalar[GeometricAlgebra[]]
 
-A_GeometricAlgebra["Pseudoscalar"] := pseudoscalar[A]
+g_GeometricAlgebra["Pseudoscalar"] := pseudoscalar[g]
 
 
-A_GeometricAlgebra["Nilpotent", n_Integer] := With[{
-    i = Min[Min[A["ComplexSignature"]], Abs[n]]
+g_GeometricAlgebra["Nilpotent", n_Integer] := With[{
+    i = Min[Min[g["ComplexSignature"]], Abs[n]]
 },
-    Multivector[<|{i} -> 1 / 2, {-i} -> Sign[n] 1 / 2|>, A]
+    Multivector[<|{i} -> 1 / 2, {-i} -> Sign[n] 1 / 2|>, g]
 ]
 
 
-A_GeometricAlgebra["Idempotent", n_Integer] := A["Nilpotent", - n] ** A["Nilpotent", n]
+g_GeometricAlgebra["Idempotent", n_Integer] := GeometricProduct[g["Nilpotent", - n], g["Nilpotent", n]]
 
 
 (* Duals *)
@@ -743,7 +728,7 @@ v_Multivector["Tr"] := v + v["Conjugate"]
 Multivector /: Tr[v_Multivector] := v["Tr"]
 
 
-v_Multivector["Det"] := v ** v["Conjugate"]
+v_Multivector["Det"] := GeometricProduct[v, v["Conjugate"]]
 
 Multivector /: Det[v_Multivector] := v["Det"]
 
@@ -760,13 +745,13 @@ $DefaultMultivectorFormatFunction = Function[index,
 ]
 
 
-geometricIndexFormat[A_GeometricAlgebra, index_] := With[{format = A["FormatIndex"][[2]]},
+geometricIndexFormat[g_GeometricAlgebra, index_] := With[{format = g["FormatIndex"][[2]]},
     Switch[format,
         Automatic,
         $DefaultMultivectorFormatFunction[index]
         ,
         "Positive",
-        $DefaultMultivectorFormatFunction[positiveIndex[index, A["Signature"]] - 1]
+        $DefaultMultivectorFormatFunction[positiveIndex[index, g["Signature"]] - 1]
         ,
         _Function,
         format[index]
@@ -776,52 +761,45 @@ geometricIndexFormat[A_GeometricAlgebra, index_] := With[{format = A["FormatInde
     ]
 ]
 
+geometricIndexFormat[g_GeometricAlgebra, {indices__List}] := geometricIndexFormat[g, #] & /@ {indices}
+
+geometricIndexFormat[g_GeometricAlgebra] := geometricIndexFormat[g, g["Indices"]]
+
 geometricIndexFormat[index_] := geometricIndexFormat[Lookup[Options[Multivector], "GeometricAlgebra"], index]
-
-geometricIndexFormat[A_GeometricAlgebra, {indices__List}] := geometricIndexFormat[A, #] & /@ {indices}
-
-geometricIndexFormat[A_GeometricAlgebra] := geometricIndexFormat[A, A["Indices"]]
 
 geometricIndexFormat[] := geometricIndexFormat[Lookup[Options[Multivector], "GeometricAlgebra"]]
 
 
-SetAttributes[holdSparseArray, {HoldAll}];
+holdSparseArray[HoldPattern[a : SparseArray[{}, ___]]] := a
+holdSparseArray[HoldPattern[SparseArray[{xs__}, opts___]]] := SparseArray[List @@ MapAt[Hold, Hold[xs], {All, 2}], opts]
 
-holdSparseArray[a : SparseArray[{}, ___]] := a
-holdSparseArray[SparseArray[{xs__}, opts___]] := SparseArray[List @@ MapAt[Hold, Hold[xs], {All, 2}], opts]
-
-Multivector /: MakeBoxes[v : HoldPattern[Multivector[opts___]] /; MultivectorQ[Unevaluated[v]], _] := Block[{
-    A = GeometricAlgebra[v],
-    holdCoords, coords,
+Multivector /: MakeBoxes[v : HoldPattern[Multivector[coords_, g_]] /; MultivectorQ[Unevaluated[v]], form_] := Block[{
+    holdCoords,
     rules,
     nonZeroPositions,
     d, n,
     indices, metric,
     display, interpret,
     boxes,
-    optBoxes
+    gBox = ToBoxes[g, form]
 },
-    d = A["Dimension"];
-    indices = A["FormatIndices"];
-    metric = A["Metric"];
-    holdCoords = Lookup[List @@ RuleDelayed @@@ Hold[opts], "Coordinates", None, Hold];
-    coords =  Which[
-        MatchQ[holdCoords, Hold[SparseArray[Automatic, ___]]], (* don't hold elements of a SparseArray object *)
-        Map[Hold, ReleaseHold @ holdCoords],
-        MatchQ[holdCoords, Hold[SparseArray[___]]], (* hold each element of a SparseArray constructor *)
-        First[holdSparseArray /@ holdCoords],
+    d = g["Dimension"];
+    indices = g["FormatIndices"];
+    metric = g["Metric"];
+    holdCoords = Which[
+        SparseArrayQ[Unevaluated[coords]], (* don't hold elements of a SparseArray object *)
+        Map[Hold, coords]
+        ,
+        MatchQ[Unevaluated[coords], _SparseArray], (* hold each element of a SparseArray constructor *)
+        holdSparseArray[Unevaluated[coords]]
+        ,
         True,
-        First @ MapAt[Hold, holdCoords, {1, All}] (* hold elements of a List *)
+        Map[Hold, Unevaluated[coords]] (* hold elements of a List *)
     ];
-    coords = Extract[coords, Lookup[PositionIndex[A["Indices"]], SortBy[#, Mod[#, d + 1] &] & /@ indices, Nothing]];
-    rules = Cases[ArrayRules[coords], ({i_Integer} -> c_) /; If[c != Hold[0], True, False, True] :> {i, c}];
-    optBoxes = ToBoxes /@ FilterRules[{opts}, Except["Coordinates"]];
-    If[Length[optBoxes] > 0,
-        optBoxes = Riffle[optBoxes, ",", {1, 2 Length[optBoxes], 2}]
-    ];
+    holdCoords = Extract[holdCoords, Lookup[PositionIndex[g["Indices"]], SortBy[#, Mod[#, d + 1] &] & /@ indices, Nothing]];
+    rules = Cases[ArrayRules[holdCoords], ({i_Integer} -> c_) /; If[c != Hold[0], True, False, True] :> {i, c}];
     nonZeroPositions = rules[[All, 1]];
     n = Length @ nonZeroPositions;
-    coords = Riffle[MakeBoxes /@ MapThread[Rule, {nonZeroPositions, Slot /@ Range[n]}], ","];
     boxes = ReleaseHold @ Map[
             Apply[
                 Function[{i, holdCoord}, If[ i > 1,
@@ -835,13 +813,12 @@ Multivector /: MakeBoxes[v : HoldPattern[Multivector[opts___]] /; MultivectorQ[U
             ],
             rules
         ];
-    display = RowBox @
-    If[ n > 0,
+    display = RowBox @ If[ n > 0,
         Riffle[
             MapThread[
                 RowBox[{
                     #1,
-                    StyleBox[ToBoxes[geometricIndexFormat[A, #2]], "ShowStringCharacters" -> False]}
+                    StyleBox[ToBoxes[geometricIndexFormat[g, #2], form], "ShowStringCharacters" -> False]}
                 ] &,
                 { Slot /@ Range[n], indices[[nonZeroPositions]]}
             ],
@@ -850,24 +827,25 @@ Multivector /: MakeBoxes[v : HoldPattern[Multivector[opts___]] /; MultivectorQ[U
         {0} (* all zeros displayed as just zero *)
     ];
     interpret = RowBox[{"Multivector", "[",
-        "\"Coordinates\"", "->", 
         "SparseArray", "[", "{",
             Sequence @@ If[n > 0, 
                 Riffle[MapThread[RowBox[{ToBoxes[#1], "->", #2}] &, {nonZeroPositions, Slot /@ Range[n]}], ","],
                 {}
             ],
-            "}", ",", ToBoxes[A["Order"]],
+            "}", ",", ToBoxes[g["Order"]],
         "]",
-        Sequence @@ optBoxes, "]"}
-    ];
+        ",",
+        gBox, "]"
+    }];
     TemplateBox[
         boxes,
         "Multivector",
         DisplayFunction -> (Evaluate @ display &),
         InterpretationFunction -> (Evaluate @ interpret &),
-        Tooltip -> RowBox[{"Multivector", " ", ToBoxes @ A}],
+        Tooltip -> RowBox[{"Multivector", " ", gBox}],
         Editable -> True
-    ]]
+    ]
+]
 
 
 (* Frontend *)
