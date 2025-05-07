@@ -20,6 +20,9 @@ GeometricProduct::usage = "GeometricProduct[vs__] computes geometric product of 
 PackageExport["Grade"]
 Grade::usage = "Grade[v, n] gives a nth grade of a Multivector v or converts a list to a multivector";
 
+PackageExport["AntiGrade"]
+AntiGrade::usage = "AntiGrade[v, n] gives a nth anti grade of a Multivector v or converts a list to a multivector";
+
 PackageExport["GradeList"]
 GradeList::usage = "GradeList[v] gives a list of all grades of multivector";
 
@@ -534,6 +537,8 @@ BulkContraction[v_Multivector, w_Multivector] := Vee[v, RightBulkDual[w]]
 
 WeightContraction[v_Multivector, w_Multivector] := Vee[v, RightWeightDual[w]]
 
+MultivectorDistance[v_Multivector, w_Multivector] := Vee[v, w] + WeightNorm[Wedge[v, Attitude[w]]]
+
 MultivectorCosAngle[v_Multivector, w_Multivector] := WeightContraction[v, w] + WeightNorm[v] ** WeightNorm[w]
 
 
@@ -631,6 +636,10 @@ Grade[v_Multivector, n_Integer] /; n < 0 || n > v["Dimension"] := zeroMultivecto
 
 Grade[v_Multivector, n_Integer] := With[{vector = gradeVector[v["GeometricAlgebra"], n]}, mapCoordinates[# * vector &, v]]
 
+Grade[v_Multivector] := With[{grades = Length /@ Extract[v["Indices"], SparseArray[v["Coordinates"]]["ExplicitPositions"]]},
+    If[Equal @@ grades, First[grades], Indeterminate]
+]
+
 GradeList[v_Multivector] := Grade[v, #] & /@ Range[0, v["Dimension"]]
 
 Grade[coords_List, n_Integer, args___] := Block[{
@@ -644,11 +653,16 @@ Grade[coords_List, n_Integer, args___] := Block[{
     Multivector[SparseArray[MapIndexed[Function[{x, i}, skipDimension + i -> x, HoldAllComplete], Take[coords, UpTo[bladeDimension]]], G["Order"]], G]
 ]
 
-Grade[x_, args___] := Grade[{x}, args]
+Grade[x_, n_Integer, args___] := Grade[{x}, n, args]
 
 Grade[v_Multivector, "Even"] := Total[Grade[v, #] & /@ Range[0, v["Dimension"], 2]]
 
 Grade[v_Multivector, "Odd"] := Total[Grade[v, #] & /@ Range[1, v["Dimension"], 2]]
+
+
+AntiGrade[v_Multivector] := v["Dimension"] - Grade[v]
+
+AntiGrade[args___] := Grade[args]["Dual"]
 
 
 v_Multivector["Grade", arg_] := Grade[v, arg]
@@ -732,6 +746,8 @@ Multivector /: Tr[v_Multivector] := v["Tr"]
 v_Multivector["Det"] := v ** v["Conjugate"]
 
 Multivector /: Det[v_Multivector] := v["Det"]
+
+\[LeftBracketingBar] v_Multivector \[RightBracketingBar] := v["Det"]
 
 
 (* Formatting *)

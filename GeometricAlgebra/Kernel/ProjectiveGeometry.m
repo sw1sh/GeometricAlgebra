@@ -49,6 +49,7 @@ $PGA = e = GeometricAlgebra[3, 0, 1, "Format" -> "PGA",
 
 eps = e[4]
 i = e[1, 2, 3, 4]
+moment = e[{{2, 3}, {3, 1}, {1, 2}}]
 
 
 PGAVectorQ[v_Multivector] := v["Signature"] === {3, 0, 1}
@@ -64,13 +65,13 @@ PGAMagnitude[x_ : 1, y_ : 1] := x + y i
 
 PGAPoint[p : {_, _, _} : {0, 0, 0}, w_ : 1] := Grade[Append[p, w], 1, $PGA]
 
-PGALine[v : {_, _, _}, m : {_, _, _}] := eps ** Grade[v, 1, $PGA] + Grade[- m, 1, $PGA]["Dual"]
+PGALine[v : {_, _, _}, m : {_, _, _}] := eps ** PGAVector[v] + m . moment
 
 PGAPlane[n : {_, _, _} : {0, 0, 1}, w_ : 1] := Grade[Prepend[pseudoVector[n], - w], 3, $PGA]
 
 PGAMotor[v : {_, _, _}, m : {_, _, _}, vw_ : 1, mw_ : 1] := mw + v . e[{{4, 1}, {4, 2}, {4, 3}}] + m . e[{{2, 3}, {3, 1}, {1, 2}}] + vw i
 
-PGAFlector[p : {_, _, _}, g : {_, _, _}, pw_ : 1, gw_ : 1] := Grade[Append[p, pw], 1, $PGA] + eps ** Grade[- g, 1, $PGA]["Dual"] + gw e[3, 2, 1]
+PGAFlector[p : {_, _, _}, g : {_, _, _}, pw_ : 1, gw_ : 1] := PGAVector[Append[p, pw]] + eps ** (g . moment) + gw e[3, 2, 1]
 
 
 (* Unary operations *)
