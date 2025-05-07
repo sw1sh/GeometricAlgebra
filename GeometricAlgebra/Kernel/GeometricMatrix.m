@@ -337,49 +337,46 @@ MatrixMultivector[mat_MultivectorArray, G_GeometricAlgebra, opts: OptionsPattern
 MatrixMultivector[mat_MultivectorArray, G : Except[OptionsPattern[]], opts: OptionsPattern[]] := MatrixMultivector[mat, GeometricAlgebra[G], opts]
 
 
-MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], mat_ /; SquareMatrixQ[mat] && MatrixQ[mat, MultivectorQ], opts: OptionsPattern[]] := Block[{
+MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], mat_ /; SquareMatrixQ[mat] && MatrixQ[mat, MultivectorQ], opts: OptionsPattern[]] := Enclose @ Block[{
     re, im, a, b, result
 },
     re = Map[#["Scalar"] &, mat, {2}];
     im = Map[#["Pseudoscalar"] &, mat, {2}];
 
-    Check[
-        Switch[
-            mat[[1, 1]]["PseudoscalarSquare"],
-            1,
-            (* hyperbolic (split-complex) case *)
-            With[{
-                aDuals = DualCoordinates[re + im],
-                bDuals = DualCoordinates[re - im]},
-                With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals, bDuals, 3], {2}]]]},
-                    a = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, aDuals, {2}], {2, 3, 1}], n];
-                    b = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], {2, 3, 1}], n];
-                ]
-            ];
-            result = MapThread[Function[{x, y}, Multivector[{x, y}, GeometricAlgebra[1, 0]], HoldAllComplete], {a + b, a - b} / 2, 2],
+    Switch[
+        mat[[1, 1]]["PseudoscalarSquare"],
+        1,
+        (* hyperbolic (split-complex) case *)
+        With[{
+            aDuals = DualCoordinates[re + im],
+            bDuals = DualCoordinates[re - im]},
+            With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals, bDuals, 3], {2}]]]},
+                a = applyDualFunction[ConfirmBy[MatrixFunction[f, #], MatrixQ] &, Transpose[Map[PadRight[#, 2 ^ n] &, aDuals, {2}], {2, 3, 1}], n];
+                b = applyDualFunction[ConfirmBy[MatrixFunction[f, #], MatrixQ] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], {2, 3, 1}], n];
+            ]
+        ];
+        result = MapThread[Function[{x, y}, Multivector[{x, y}, GeometricAlgebra[1, 0]], HoldAllComplete], {a + b, a - b} / 2, 2],
 
-            -1,
-            (* complex case *)
-            With[{
-                aDuals = DualCoordinates[re + I im],
-                bDuals = DualCoordinates[re - I im]},
-                With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals, bDuals, 3], {2}]]]},
-                    a = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, aDuals, {2}], {2, 3, 1}], n];
-                    b = applyDualFunction[MatrixFunction[f, #] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], {2, 3, 1}], n];
-                ]
-            ];
-            result = MapThread[Function[{x, y}, Multivector[{x, - I y}, GeometricAlgebra[0, 1]], HoldAllComplete], {a + b, a - b} / 2, 2],
+        -1,
+        (* complex case *)
+        With[{
+            aDuals = DualCoordinates[re + I im],
+            bDuals = DualCoordinates[re - I im]},
+            With[{n = Ceiling @ Log2[Max[Map[Length, Join[aDuals, bDuals, 3], {2}]]]},
+                a = applyDualFunction[ConfirmBy[MatrixFunction[f, #], MatrixQ] &, Transpose[Map[PadRight[#, 2 ^ n] &, aDuals, {2}], {2, 3, 1}], n];
+                b = applyDualFunction[ConfirmBy[MatrixFunction[f, #], MatrixQ] &, Transpose[Map[PadRight[#, 2 ^ n] &, bDuals, {2}], {2, 3, 1}], n];
+            ]
+        ];
+        result = MapThread[Function[{x, y}, Multivector[{x, - I y}, GeometricAlgebra[0, 1]], HoldAllComplete], {a + b, a - b} / 2, 2],
 
-            _,
-            Return[$Failed]
-        ],
+        _,
         Return[$Failed]
     ];
     MultivectorArray[result]
 ]
 
 MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], va_MultivectorArray ? MultivectorArrayQ, opts: OptionsPattern[]] :=
-    MultivectorFunction[f, va["Components"], opts]
+    MultivectorFunction[f, Normal[va], opts]
 
 MultivectorFunction[f_ /; MatchQ[f, _Function] || numericFunctionQ[f], v_Multivector ? MultivectorQ, opts: OptionsPattern[]] := Enclose @ Block[{
     w, x, y

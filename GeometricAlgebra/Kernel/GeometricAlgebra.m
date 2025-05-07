@@ -138,9 +138,9 @@ A_GeometricAlgebra["DualIndices"] := With[{i = Last @ A["Indices"]},
      Map[DeleteElements[i, #] &, A["Indices"]]
 ]
 
-A_GeometricAlgebra["PseudoscalarSquare"] := Module[{p, q},
-    {p, q} = A["ComplexSignature"];
-    (- 1) ^ ((p - q) * (p - q - 1) / 2)
+A_GeometricAlgebra["PseudoscalarSquare"] := Block[{p, q, r},
+    {p, q, r} = A["Signature"];
+    If[r == 0, (- 1) ^ ((p - q) * (p - q - 1) / 2), 0]
 ]
 
 

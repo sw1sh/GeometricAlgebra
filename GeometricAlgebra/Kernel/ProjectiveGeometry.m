@@ -7,6 +7,7 @@ PackageExport[RegionPGA]
 PackageExport[PGARegions]
 PackageExport[PGAVectorQ]
 
+PackageExport[PGAVector]
 PackageExport[PGAMagnitude]
 PackageExport[PGAPoint]
 PackageExport[PGALine]
@@ -57,13 +58,15 @@ pseudoVector[v : {_, _, _}] := Reverse[v] {1, -1, 1}
 
 (* Constructors *)
 
+PGAVector[v : {_, _, _} : {0, 0, 1}] := Grade[v, 1, $PGA]
+
 PGAMagnitude[x_ : 1, y_ : 1] := x + y i
 
 PGAPoint[p : {_, _, _} : {0, 0, 0}, w_ : 1] := Grade[Append[p, w], 1, $PGA]
 
 PGALine[v : {_, _, _}, m : {_, _, _}] := eps ** Grade[v, 1, $PGA] + Grade[- m, 1, $PGA]["Dual"]
 
-PGAPlane[n : {_, _, _} : {0, 0, 1}, d_ : 0] := Grade[Prepend[pseudoVector[n], - d], 3, $PGA]
+PGAPlane[n : {_, _, _} : {0, 0, 1}, w_ : 1] := Grade[Prepend[pseudoVector[n], - w], 3, $PGA]
 
 PGAMotor[v : {_, _, _}, m : {_, _, _}, vw_ : 1, mw_ : 1] := mw + v . e[{{4, 1}, {4, 2}, {4, 3}}] + m . e[{{2, 3}, {3, 1}, {1, 2}}] + vw i
 

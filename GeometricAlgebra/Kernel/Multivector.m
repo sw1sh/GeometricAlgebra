@@ -38,11 +38,50 @@ InnerProduct::usage = "InnerProduct[v, w] gives an inner product of multivectors
 PackageExport["AntiInnerProduct"]
 AntiInnerProduct::usage = "AntiInnerProduct[v, w] gives an anti inner product of multivectors v and w";
 
+PackageExport["BulkExpansion"]
+BulkExpansion::usage = "BulkExpansion[v] gives a bulk expansion of multivector v";
+
+PackageExport["WeightExpansion"]
+WeightExpansion::usage = "WeightExpansion[v] gives a weight expansion of multivector v";
+
+PackageExport["BulkContraction"]
+BulkContraction::usage = "BulkContraction[v, w] gives a bulk contraction of multivectors v and w";
+
+PackageExport["WeightContraction"]
+WeightContraction::usage = "WeightContraction[v, w] gives a weight contraction of multivectors v and w";
+
 PackageExport["LeftDual"]
 LeftDual::usage = "LeftDual[v] gives a left dual of multivector v";
 
 PackageExport["RightDual"]
 RightDual::usage = "RightDual[v] gives a right dual of multivector v";
+
+PackageExport["Bulk"]
+Bulk::usage = "Bulk[v] gives a bulk of multivector v";
+
+PackageExport["Weight"]
+Weight::usage = "Weight[v] gives a weight of multivector v";
+
+PackageExport["RightBulkDual"]
+RightBulkDual::usage = "RightBulkDual[v] gives a right bulk dual of multivector v";
+
+PackageExport["RightWeightDual"]
+RightWeightDual::usage = "RightWeightDual[v] gives a right weight dual of multivector v";
+
+PackageExport["LeftBulkDual"]
+LeftBulkDual::usage = "LeftBulkDual[v] gives a left bulk dual of multivector v";
+
+PackageExport["LeftWeightDual"]
+LeftWeightDual::usage = "LeftWeightDual[v] gives a left weight dual of multivector v";
+
+PackageExport["BulkNorm"]
+BulkNorm::usage = "BulkNorm[v] gives a bulk norm of multivector v";
+
+PackageExport["WeightNorm"]
+WeightNorm::usage = "WeightNorm[v] gives a weight norm of multivector v";
+
+PackageExport["MultivectorCosAngle"]
+MultivectorCosAngle::usage = "MultivectorCosAngle[v, w] gives a cosine of angle between multivectors v and w";
 
 PackageExport["Involute"]
 Involute::usage = "Involute[v] gives a multivector with its odd grades multiplied by -1";
@@ -328,7 +367,7 @@ Multivector /: Times[x: Except[_Multivector], v_Multivector] := mapCoordinates[x
 v_Multivector["Scalar"] := v["Coordinate", 1]
 
 
-v_Multivector["Pseudoscalar"] := If[v["ComplexDimension"] > 0, v["Coordinate", 2 ^ v["ComplexDimension"]], 0]
+v_Multivector["Pseudoscalar"] := v["Coordinate", -1]
 
 
 A_GeometricAlgebra["Identity"] := identityMultivector[A]
@@ -345,7 +384,7 @@ A_GeometricAlgebra["MultiplicationTensor"] := A["MultiplicationTensor"] = With[{
 ]
 
 A_GeometricAlgebra["MetricMultiplicationTensor"] := A["MetricMultiplicationTensor"] = With[{a = Transpose @ A["BasisMatrix"], b = Transpose @ A["InverseBasisMatrix"]},
-    Transpose[b . Transpose[b . A["MultiplicationTensor"]]] . a
+    SparseArray[Transpose[b . Transpose[b . A["MultiplicationTensor"]]] . a]
 ]
 
 A_GeometricAlgebra["ExomorphismMatrix"] := A["ExomorphismMatrix"] =
@@ -358,17 +397,29 @@ A_GeometricAlgebra["AntiExomorphismMatrix"] := With[{perm = FindPermutation[A["I
 
 (* A_GeometricAlgebra["AntiExomorphismMatrix"] := A["AntiExomorphismMatrix"] = Det[A["Metric"]] * SparseArray[PseudoInverse[A["ExomorphismMatrix"]]] *)
 
-v_Multivector["Bulk"] := With[{A = GeometricAlgebra[v]}, Multivector[A["ExomorphismMatrix"] . v["Coordinates"], A]]
+Bulk[v_Multivector] := With[{A = GeometricAlgebra[v]}, Multivector[A["ExomorphismMatrix"] . v["Coordinates"], A]]
 
-v_Multivector["Weight"] := With[{A = GeometricAlgebra[v]}, Multivector[A["AntiExomorphismMatrix"] . v["Coordinates"], A]]
+v_Multivector["Bulk"] := Bulk[v]
 
-v_Multivector["BulkDual" | "RightBulkDual"] := OverBar[v["Bulk"]]
+Weight[v_Multivector] := With[{A = GeometricAlgebra[v]}, Multivector[A["AntiExomorphismMatrix"] . v["Coordinates"], A]]
 
-v_Multivector["LeftBulkDual"] := UnderBar[v["Bulk"]]
+v_Multivector["Weight"] := Weight[v]
 
-v_Multivector["WeightDual" | "RightWeightDual"] := OverBar[v["Weight"]]
+v_Multivector["BulkDual" | "RightBulkDual"] := RightBulkDual[v]
 
-v_Multivector["LeftWeightDual"] := UnderBar[v["Weight"]]
+v_Multivector["LeftBulkDual"] := LeftBulkDual[v]
+
+v_Multivector["WeightDual" | "RightWeightDual"] := RightWeightDual[v]
+
+v_Multivector["LeftWeightDual"] := LeftWeightDual[v]
+
+RightBulkDual[v_] := OverBar[Bulk[v]]
+
+RightWeightDual[v_] := OverBar[Weight[v]]
+
+LeftBulkDual[v_] := UnderBar[Bulk[v]]
+
+LeftWeightDual[v_] := UnderBar[Weight[v]]
 
 
 switchDualSide[v_Multivector] :=
@@ -390,17 +441,11 @@ A_GeometricAlgebra["MetricMultiplicationTable"] := ResourceFunction["GridTableFo
 
 GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric product of multivectors v and w";
 
-GeometricProduct[v_Multivector, w_Multivector] := Module[{
-    A = mergeGeometricAlgebra[v, w],
-    x, y,
-    coords
+GeometricProduct[v_Multivector, w_Multivector] := With[{
+    A = mergeGeometricAlgebra[v, w]
 },
-    x = Multivector[v, A]["Coordinates"];
-    y = Multivector[w, A]["Coordinates"];
-
-    coords = Outer[coordinateTimes, x, y];
     Multivector[
-        Flatten[coords, 1] . Flatten[A["MetricMultiplicationTensor"], 1],
+        Flatten[Outer[coordinateTimes, Multivector[v, A]["Coordinates"], Multivector[w, A]["Coordinates"], 1], 1] . Flatten[A["MetricMultiplicationTensor"], 1],
         A
     ][Map[reduceFunctions]]
 ]
@@ -480,6 +525,16 @@ AntiInnerProduct[v_Multivector, w_Multivector] := With[{A = mergeGeometricAlgebr
 (* AntiInnerProduct[v_Multivector, w_Multivector] := OverBar[InnerProduct[UnderBar[v], UnderBar[w]]] *)
 
 AntiGeometricProduct[vs__Multivector] := OverBar[GeometricProduct @@ UnderBar /@ {vs}]
+
+BulkExpansion[v_Multivector, w_Multivector] := Wedge[v, RightBulkDual[w]]
+
+WeightExpansion[v_Multivector, w_Multivector] := Wedge[v, RightWeightDual[w]]
+
+BulkContraction[v_Multivector, w_Multivector] := Vee[v, RightBulkDual[w]]
+
+WeightContraction[v_Multivector, w_Multivector] := Vee[v, RightWeightDual[w]]
+
+MultivectorCosAngle[v_Multivector, w_Multivector] := WeightContraction[v, w] + WeightNorm[v] ** WeightNorm[w]
 
 
 (* Inversions *)
@@ -572,11 +627,11 @@ Multivector /: Power[v_Multivector, x_] := MultivectorPower[v, x]
 (* Grade *)
 
 
-Grade[v_Multivector, n_Integer] /; n < 0 || n > v["GeometricAlgebra"]["Dimension"] := zeroMultivector[v]
+Grade[v_Multivector, n_Integer] /; n < 0 || n > v["Dimension"] := zeroMultivector[v]
 
-Grade[v_Multivector, n_Integer] := mapCoordinates[# gradeIndices[v["GeometricAlgebra"], n] &, v]
+Grade[v_Multivector, n_Integer] := With[{vector = gradeVector[v["GeometricAlgebra"], n]}, mapCoordinates[# * vector &, v]]
 
-GradeList[v_Multivector] := Grade[v, #] & /@ Range[0, v["GeometricAlgebra"]["Dimension"]]
+GradeList[v_Multivector] := Grade[v, #] & /@ Range[0, v["Dimension"]]
 
 Grade[coords_List, n_Integer, args___] := Block[{
     G = GeometricAlgebra[args], d,
@@ -591,9 +646,9 @@ Grade[coords_List, n_Integer, args___] := Block[{
 
 Grade[x_, args___] := Grade[{x}, args]
 
-Grade[v_Multivector, "Even"] := Total[Grade[v, #] & /@ Range[0, v["GeometricAlgebra"]["Dimension"], 2]]
+Grade[v_Multivector, "Even"] := Total[Grade[v, #] & /@ Range[0, v["Dimension"], 2]]
 
-Grade[v_Multivector, "Odd"] := Total[Grade[v, #] & /@ Range[1, v["GeometricAlgebra"]["Dimension"], 2]]
+Grade[v_Multivector, "Odd"] := Total[Grade[v, #] & /@ Range[1, v["Dimension"], 2]]
 
 
 v_Multivector["Grade", arg_] := Grade[v, arg]
@@ -604,11 +659,11 @@ v_Multivector["Grade", arg_] := Grade[v, arg]
 A_GeometricAlgebra["Scalar"] := Multivector[1, A]
 
 
-pseudoscalar[A_GeometricAlgebra] := Module[{
-    p, q
+pseudoscalar[A_GeometricAlgebra] := Block[{
+    p, q, r
 },
-    {p, q} = A["ComplexSignature"];
-    Multivector[<|Join[Range[p], Range[- q, - 1]] -> 1|>, A]
+    {p, q, r} = A["Signature"];
+    Multivector[SparseArray[{{-1} -> 1}, A["Order"]], A]
 ]
 
 pseudoscalar[v_Multivector] := pseudoscalar[v["GeometricAlgebra"]]
@@ -645,21 +700,29 @@ v_Multivector["Dual"] := LeftDual[v]
 
 (* Norms *)
 
-v_Multivector["BulkNorm"] := Sqrt[InnerProduct[v, v]]
+v_Multivector["BulkNorm"] := BulkNorm[v]
 
-v_Multivector["WeightNorm"] := Sqrt[AntiInnerProduct[v, v]]
+BulkNorm[v_Multivector] := InnerProduct[v, v][Sqrt]
+
+v_Multivector["WeightNorm"] := WeightNorm[v]
+
+WeightNorm[v_Multivector] := AntiInnerProduct[v, v][Sqrt]
 
 v_Multivector["Norm" | "GeometricNorm"] := v["BulkNorm"] + v["WeightNorm"]
 
 Multivector /: Norm[v_Multivector] := v["Norm"]
 
+\[LeftDoubleBracketingBar] v_Multivector \[RightDoubleBracketingBar] := v["Norm"]
+
+v_Multivector["CoordinateNorm"] := Norm[v["Coordinates"]]
 
 v_Multivector["Normalize"] := v / v["Norm"]
 
-v_Multivector["Unitize"] := v / v["WeightNorm"]
-
 Multivector /: Normalize[v_Multivector] := v["Normalize"]
 
+v_Multivector["Unitize" | "WeightUnitize"] := v / WeightNorm[v]["Pseudoscalar"]
+
+Multivector /: OverHat[v_Multivector] := v["Unitize"]
 
 v_Multivector["Tr"] := v + v["Conjugate"]
 

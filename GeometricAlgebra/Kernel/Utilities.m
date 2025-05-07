@@ -21,7 +21,7 @@ PackageScope[contractBlade]
 PackageScope[orderAndContract]
 PackageScope[multiplyIndices]
 PackageScope[binomialSum]
-PackageScope[gradeIndices]
+PackageScope[gradeVector]
 PackageScope[indexSpan]
 PackageScope[normalIndex]
 PackageScope[positiveIndex]
@@ -151,12 +151,14 @@ multiplyIndices[uu : {___Integer}, vv : {___Integer}, g_ ? SquareMatrixQ] := Blo
 multiplyIndices[u : {___Integer}, v : {___Integer}, g_ ? VectorQ] := <|#1 -> #2|> & @@ orderAndContract[Join[u, v], g]
 
 
-binomialSum[n_Integer, k_Integer] := Module[{i}, Evaluate[Sum[Binomial[n, i], {i, 0, k}]]]
+binomialSum[n_Integer, k_Integer] := binomialSum[n, k] = Sum[Binomial[n, i], {i, 0, k}]
 
 
-gradeIndices[A_GeometricAlgebra, k_Integer] := SparseArray[
-    Thread[Range[binomialSum[A["Dimension"], k - 1] + 1, binomialSum[A["Dimension"], k]] -> 1],
-    A["Order"]
+gradeVector[A_GeometricAlgebra, k_Integer] := gradeVector[A["Dimension"], A["Order"], k]
+
+gradeVector[n_, d_, k_] := gradeVector[n, d, k] = SparseArray[
+    Thread[Range[binomialSum[n, k - 1] + 1, binomialSum[n, k]] -> 1],
+    d
 ]
 
 
