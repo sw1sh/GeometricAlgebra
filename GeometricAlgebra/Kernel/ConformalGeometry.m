@@ -100,7 +100,7 @@ RegionCGA[Tube[{{p1 : {_, _, _}, p2 : {_, _, _}}, r_}]] := CGADipole[(p1 + p2) /
 
 (* Region export *)
 
-CGARegions[v_Multivector ? CGAQ] := Quiet @ <|
+CGARegions[v_Multivector ? CGAQ] := DeleteMissing @ <|
     "FlatPoint" -> With[{w = v[4, 5]}, If[w == 0, Missing[], Point[v[{{1, 5}, {2, 5}, {3, 5}}] / w]]],
     "RoundPoint" -> With[{w = v[4]}, If[w == 0, Missing[], Point[v[{{1}, {2}, {3}}] / w]]],
     "Line" -> With[{m = v[{{2, 3, 5}, {3, 1, 5}, {1, 2, 5}}], d = v[{{4, 1, 5}, {4, 2, 5}, {4, 3, 5}}]},

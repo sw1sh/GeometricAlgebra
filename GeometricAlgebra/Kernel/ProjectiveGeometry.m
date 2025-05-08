@@ -13,6 +13,8 @@ PackageExport[PGAMagnitude]
 PackageExport[PGAPoint]
 PackageExport[PGALine]
 PackageExport[PGAPlane]
+PackageExport[PGARotor]
+PackageExport[PGATranslator]
 PackageExport[PGAMotor]
 PackageExport[PGAFlector]
 
@@ -27,6 +29,8 @@ PackageExport[PGAProjection]
 PackageExport[PGARejection]
 
 PackageExport[PGADistance]
+
+PackageExport[PlaneReflection]
 
 
 
@@ -64,12 +68,8 @@ pseudoVector[v : {_, _, _}] := Reverse[v] {1, -1, 1}
 
 (* Constructors *)
 
-PGAVector[v_Multivector ? PGA2DQ] := With[{p = v[{{1}, {2}}], w = v[3]},
-    Switch[w == 0, True, Missing["Vector"], _, p / w]
-]
-PGAVector[v_Multivector ? PGA3DQ] := With[{p = v[{{1}, {2}, {3}}], w = v[4]},
-    Switch[w == 0, True, Missing["Vector"], _, p / w]
-]
+PGAVector[v_Multivector ? PGA2DQ] := v[{{1}, {2}}]
+PGAVector[v_Multivector ? PGA3DQ] := v[{{1}, {2}, {3}}]
 PGAVector[v : {_, _}] := Grade[v, 1, $2DPGA]
 PGAVector[v : {_, _, _}] := Grade[v, 1, $PGA]
 
@@ -87,16 +87,14 @@ PGAPoint[p : {_, _, _}, w_ : 1] := Grade[Append[p, w], 1, $PGA]
 
 PGALine[(Line | InfiniteLine)[{p_, q_}]] := Wedge[PGAPoint[p], PGAPoint[q]]
 PGALine[InfiniteLine[p_, v_]] := PGALine[v, Cross[p, v]]
-PGALine[x_Multivector ? PGA2DQ] := With[{n = x[{{2, 3}, {3, 1}}], p = PGAVector[PGASupport[x]]},
-    Switch[Norm[n] == 0, True, Missing["Line"], _, InfiniteLine[p, {1, -1} Reverse[n]]]
+PGALine[x_Multivector ? PGA2DQ] := With[{n = x[{{2, 3}, {3, 1}}]},
+    Enclose[InfiniteLine[First @ Confirm @ PGAPoint[PGASupport[x]], {1, -1} Reverse[n]], Missing["Line"] &]
 ]
-PGALine[x_Multivector ? PGA3DQ] := With[{v = x[{{4, 1}, {4, 2}, {4, 3}}], m = x[{{2, 3}, {3, 1}, {1, 2}}]},
-    Switch[m == {0, 0, 0} || Chop[v . m] == 0 && v . v != 0 && m . m != 0, False, Missing["Line"], _,
-        InfiniteLine[PGAVector[PGASupport[x]], v]
-    ]
+PGALine[x_Multivector ? PGA3DQ] := With[{v = x[{{4, 1}, {4, 2}, {4, 3}}]},
+    Enclose[InfiniteLine[First @ Confirm @ PGAPoint[PGASupport[x]], v], Missing["Line"] &]
 ]
 PGALine[n : {_, _}, d_ : 0] := n . e2[{{2, 3}, {3, 1}}] + d e2[1, 2] 
-PGALine[v : {_, _, _}, m : {_, _, _} : {0, 0, 0}] := e[4] ** PGAVector[v] + m . e[{{2, 3}, {3, 1}, {1, 2}}]
+PGALine[v : {_, _, _}, m : {_, _, _}] := e[4] ** PGAVector[v] + m . moment
 
 PGAPlane[InfinitePlane[p : {_, _, _}, {u : {_, _, _}, v : {_, _, _}}]] := Wedge[PGAPoint[p], PGAPoint[p + u] PGAPoint[p + v]]
 PGAPlane[(Triangle | InfinitePlane)[{p1 : {_, _, _}, p2 : {_, _, _}, p3 : {_, _, _}}]] := Wedge[PGAPoint[p1], PGAPoint[p2], PGAPoint[p3]]
@@ -106,6 +104,13 @@ PGAPlane[x_Multivector ? PGA3DQ] := With[{n = x[{{4, 2, 3}, {4, 3, 1}, {4, 1, 2}
     Switch[Norm[n] != 0, False, Missing["Plane"], _, Hyperplane[n, - w]]
 ]
 PGAPlane[n : {_, _, _} : {0, 0, 1}, w_ : 1] := Grade[Prepend[pseudoVector[n], - w], 3, $PGA]
+
+PGARotor[l_Multivector, phi_] := l Sin[phi / 2] + i Cos[phi / 2]
+PGARotor[v : {_, _, _}, m : {_, _, _}, phi_] := PGARotor[PGALine[v, m], phi]
+
+PGATranslator[t : {_, _, _}] := (t / 2) . moment + i
+
+PGATransflector[t : {_, _, _}] := (t / 2) . moment + i
 
 PGAMotor[v : {_, _, _}, m : {_, _, _}, vw_ : 1, mw_ : 1] := mw + v . e[{{4, 1}, {4, 2}, {4, 3}}] + m . e[{{2, 3}, {3, 1}, {1, 2}}] + vw i
 
@@ -136,6 +141,16 @@ PGAContraction = WeightContraction
 PGADistance[a_Multivector, b_Multivector] := BulkNorm[PGAAttitude[Wedge[a, b]]] + WeightNorm[Wedge[a, PGAAttitude[b]]]
 
 
+(* Transforms *)
+
+PlaneReflection[x_, g_] := - AntiGeometricProduct[g, x, g]
+
+LineRotation[x_, l_, phi_ : Pi / 2] := With[{rot = l Sin[phi] + i Cos[phi]}, AntiGeometricProduct[rot, x, Inverse[rot]]]
+
+PointInversion[x_, p_] := - AntiGeometricProduct[p, x, Inverse[p]]
+
+
+
 (* Region constructions *)
 
 Attributes[RegionPGA] = {Listable}
@@ -149,4 +164,6 @@ RegionPGA[plane : _Triangle | _InfinitePlane | _Hyperplane] := PGAPlane[plane]
 
 (* Region export *)
 
-PGARegions[v_Multivector] /; PGA3DQ[v] := DeleteMissing @ <|"Point" -> PGAPoint[v] , "Line" -> PGALine[v] , "Plane" -> PGAPlane[v]|>
+PGARegions[v_Multivector] /; PGA2DQ[v] := DeleteMissing @ <|"Vector" -> Arrow[{{0, 0}, PGAVector[v]}], "Point" -> PGAPoint[v] , "Line" -> PGALine[v]|>
+
+PGARegions[v_Multivector] /; PGA3DQ[v] := DeleteMissing @ <|"Vector" -> Arrow[{{0, 0, 0}, PGAVector[v]}], "Point" -> PGAPoint[v] ,"Line" -> PGALine[v] ,"Plane" -> PGAPlane[v]|>

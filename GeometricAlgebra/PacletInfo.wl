@@ -8,7 +8,7 @@ PacletObject[
     "URL" -> "https://github.com/sw1sh/GeometricAlgebra",
     "License" -> "MIT",
     "PublisherID" -> "Wolfram",
-    "Version" -> "1.1",
+    "Version" -> "1.2",
     "WolframVersion" -> "14.2+",
     "PrimaryContext" -> "Wolfram`GeometricAlgebra`",
     "Extensions" -> {

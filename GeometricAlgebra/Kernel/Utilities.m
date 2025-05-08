@@ -27,7 +27,7 @@ PackageScope[normalIndex]
 PackageScope[positiveIndex]
 
 
-elementwiseFunctionQ = MatchQ[Simplify | FullSimplify | Expand | ComplexExpand | TrigExpand | ExpToTrig | TrigToExp | Chop]
+elementwiseFunctionQ = MatchQ[Simplify | FullSimplify | Expand | ComplexExpand | TrigExpand | FunctionExpand | Together | ExpToTrig | TrigToExp | Chop]
 
 numericFunctionQ[f_] := MatchQ[f, _Symbol] && MemberQ[Attributes[f], NumericFunction]
 

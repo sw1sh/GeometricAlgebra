@@ -119,6 +119,12 @@ CentralAntiprojection::usage = "CentralAntiprojection[v, w] gives a central anti
 PackageExport["OrthoAntiprojection"]
 OrthoAntiprojection::usage = "OrthoAntiprojection[v, w] gives an orthogonal antiprojection of multivector v on w";
 
+PackageExport["Sandwich"]
+Sandwich::usage = "Sandwich[v, w] gives a sandwich product of multivectors v and w";
+
+PackageExport["AntiSandwich"]
+AntiSandwich::usage = "AntiSandwich[v, w] gives an anti sandwich product of multivectors v and w";
+
 PackageExport["AntiReverse"]
 AntiReverse::usage = "AntiReverse[v] gives a multivector with its even grades multiplied by -1";
 
@@ -130,6 +136,10 @@ Attitude::usage = "Attitude[v] gives an attitude of multivector v";
 
 PackageExport["$DefaultMultivectorFormatFunction"]
 $DefaultMultivectorFormatFunction::usage = "$DefaultMultivectorFormatFunction is a default function for formatting multivectors";
+
+PackageExport["RandomMultivector"]
+RandomMultivector::usage = "RandomMultivector[g] gives a random multivector in geometric algebra g";
+
 
 PackageScope["zeroMultivector"]
 PackageScope["identityMultivector"]
@@ -630,6 +640,11 @@ v_Multivector["DoubleComplement"] := v["RightComplement"]["RightComplement"]
 v_Multivector["Squared"] = GeometricProduct[v, v["Involute"]]
 
 
+Sandwich[v_Multivector, w_Multivector] := - GeometricProduct[w, v, Inverse[w]]
+
+AntiSandwich[v_Multivector, w_Multivector] := - AntiGeometricProduct[w, v, UnderBar[Inverse[OverBar[w]]]]
+
+
 (* Projections *)
 
 Multivector /: Projection[v_Multivector, w_Multivector] := GeometricProduct[w, v . w]
@@ -640,7 +655,7 @@ Rejection[v_Multivector, w_Multivector] := GeometricProduct[Wedge[v, w], w]
 
 OrthoProjection[v_Multivector, w_Multivector] := Vee[w, WeightExpansion[v, w]]
 
-OrthoAntiprojection[v_Multivector, w_Multivector] := Wedge[b, WeightContraction[v, w]]
+OrthoAntiprojection[v_Multivector, w_Multivector] := Wedge[w, WeightContraction[v, w]]
 
 CentralProjection[v_Multivector, w_Multivector] := Vee[w, BulkExpansion[v, w]]
 
@@ -752,6 +767,9 @@ v_Multivector["RightDual"] := RightDual[v]
 v_Multivector["Dual"] := LeftDual[v]
 
 
+Multivector /: SuperDagger[v_Multivector] := v["Dual"]
+
+
 (* Norms *)
 
 v_Multivector["BulkNorm"] := BulkNorm[v]
@@ -788,6 +806,19 @@ v_Multivector["Det"] := GeometricProduct[v, v["Conjugate"]]
 Multivector /: Det[v_Multivector] := v["Det"]
 
 \[LeftBracketingBar] v_Multivector \[RightBracketingBar] := v["Det"]
+
+
+(* *)
+
+RandomMultivector[arg_, g_GeometricAlgebra] := Multivector[RandomReal[arg, g["Order"]], g]
+
+RandomMultivector[arg_, n_Integer, g_GeometricAlgebra] := Table[RandomMultivector[arg, g], n]
+
+RandomMultivector[arg : Except[_GeometricAlgebra]] := RandomMultivector[arg, GeometricAlgebra[]]
+
+RandomMultivector[args___, n_Integer] := Table[RandomMultivector[args], n]
+
+RandomMultivector[args___] := RandomMultivector[{-1, 1}, args]
 
 
 (* Formatting *)
@@ -907,11 +938,20 @@ Multivector /: MakeBoxes[v : HoldPattern[Multivector[coords_, g_]] /; Multivecto
 
 UsingFrontEnd[
     SetOptions[EvaluationNotebook[],
-        InputAliases -> {"gp" ->
-        TemplateBox[{"\[Placeholder]", "\[Placeholder]"},
-            "GeometricProduct",
-            InterpretationFunction -> (RowBox[{#1, "**", #2}] &),
-            DisplayFunction -> (RowBox[{#1, " ", #2}] &)]
+        InputAliases -> {
+            "gp" ->
+                TemplateBox[{"\[Placeholder]", "\[Placeholder]"},
+                    "GeometricProduct",
+                    InterpretationFunction -> (RowBox[{#1, "**", #2}] &),
+                    DisplayFunction -> (RowBox[{#1, "⟑", #2}] &)
+                ]
+            ,
+            "agp" ->
+                TemplateBox[{"\[Placeholder]", "\[Placeholder]"},
+                    "AntiGeometricProduct",
+                    InterpretationFunction -> (RowBox[{"AntiGeometricProduct", "[", #1, ",", #2, "]"}] &),
+                    DisplayFunction -> (RowBox[{#1, "⟇", #2}] &)
+                ]
         }
     ]
 ]
