@@ -412,7 +412,7 @@ DualComplexMultivector[v_Multivector] := Block[{
     G = GeometricAlgebra[p + r, q + r];
     Multivector[
         Association @ KeyValueMap[
-            Function[{k, x}, If[AnyTrue[k, GreaterThan[p]], With[{l = k /. i_Integer /; i > p :> - q - (i - p)}, <|k -> x, l  -> x|>], k -> x]],
+            Function[{k, x}, If[AnyTrue[k, GreaterThan[p]], With[{l = k /. i_Integer /; i > p :> - q - (i - p)}, <|k -> x, l -> x|>], k -> x]],
             v["Association"]
         ],
         G
@@ -427,7 +427,7 @@ ComplexDualMultivector[v_Multivector, r_Integer : 1] := Block[{
     {p, q} = v["ComplexSignature"];
     G = GeometricAlgebra[p - r, q - r, r];
     Multivector[
-        Merge[KeyValueMap[Function[{k, x}, (k /. i_Integer :> p - r - i /; i < - q + r) -> x], v["Association"]], Total],
+        Merge[KeyValueMap[Replace[#1, i_ :> If[i < - q + r, p - r - i, i], 1] -> #2 &, v["Association"]], Mean],
         G
     ]
 ]
