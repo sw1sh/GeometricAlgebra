@@ -12,7 +12,7 @@ PackageScope["higherGeometricAlgebra"]
 GeometricAlgebra::usage = "GeometricAlgebra[p, q] gives an underlying algebra object for use with Multivector";
 
 
-Options[GeometricAlgebra] = {"Signature" -> {3, 0, 0}, "VectorBasis" -> Automatic, "Format" -> Automatic, "FormatIndex" -> Automatic}
+Options[GeometricAlgebra] = {"Signature" -> {3, 0, 0}, "VectorBasis" -> Automatic, "Format" -> Automatic, "FormatIndex" -> Automatic, "Ordering" -> Automatic}
 
 
 $GeometricAlgebraProperties = {
@@ -26,32 +26,40 @@ $GeometricAlgebraProperties = {
     "Dimension",
     "DualDimension",
     "ComplexDimension",
+    "NonNegativeDimension",
 
     "Order",
     "ComplexOrder",
     "DualOrder",
+
+    "Ordering",
 
     "VectorBasis",
     "Metric",
     "MatricSignature",
     "Indices",
     "DualIndices",
+    "OrderedIndices",
     "ReIndices",
     "ImIndexSigns",
 
     "Basis",
     "PseudoBasis",
+    "OrderedBasis",
 
     "MultiplicationMatrix",
     "MultiplicationTable",
     "ExomorphismMatrix",
     "AntiExomorphismMatrix",
 
+    "PseudoscalarIndex",
     "PseudoscalarSquare",
     "ComplexAlgebra",
 
     "Zero",
-    "Identity"
+    "Identity",
+    "Origin",
+    "Infinity"
 };
 
 
@@ -86,8 +94,6 @@ g_GeometricAlgebra[opt_String] /; KeyExistsQ[Options[GeometricAlgebra], opt] := 
     Switch[opt,
         "VectorBasis",
         Replace[value, Automatic :> If[g["Dimension"] == 0, {{}}, IdentityMatrix[g["Dimension"]]]],
-        "FormatIndex",
-        Replace[value, Except[{{{___Integer} ..}, _}] :> {Automatic, value}],
         _,
         value
     ]
@@ -101,13 +107,13 @@ g_GeometricAlgebra["Metric"] := Replace[g["VectorBasis"], {
 
 g_GeometricAlgebra["ComplexSignature"] := g["Signature"][[;; 2]]
 
-g_GeometricAlgebra["DualSignature"] := g["Signature"][[-1]]
+g_GeometricAlgebra["DualSignature" | "DualDimension"] := g["Signature"][[-1]]
 
 g_GeometricAlgebra["Dimension"] := Total @ g["Signature"]
 
-g_GeometricAlgebra["ComplexDimension"] := Total @ g["ComplexSignature"]
+g_GeometricAlgebra["NonNegativeDimension"] := Total @ g["Signature"][[{1, 3}]]
 
-g_GeometricAlgebra["DualDimension"] := g["DualSignature"]
+g_GeometricAlgebra["ComplexDimension"] := Total @ g["ComplexSignature"]
 
 g_GeometricAlgebra["Order"] := 2 ^ g["Dimension"]
 
@@ -130,10 +136,14 @@ g_GeometricAlgebra["Indices"] := g["Indices"] = Block[{
     Subsets[Join[Range[p], p + Range[r], Range[- q, -1]]]
 ]
 
-g_GeometricAlgebra["FormatIndices"] := Replace[g["FormatIndex"][[1]], Automatic :> g["Indices"]]
+g_GeometricAlgebra["OrderedIndices"] := Replace[g["Ordering"], Automatic :> g["Indices"]]
 
 g_GeometricAlgebra["DualIndices"] := With[{i = Last @ g["Indices"]},
      Map[DeleteElements[i, #] &, g["Indices"]]
+]
+
+g_GeometricAlgebra["PseudoscalarIndex"] := g["PseudoscalarIndex"] = With[{i = Last[g["Indices"]]},
+    If[g["Ordering"] === Automatic, i, SelectFirst[g["OrderedIndices"], Sort[#] == i &, i]]
 ]
 
 g_GeometricAlgebra["PseudoscalarSquare"] := Block[{p, q, r},
@@ -173,7 +183,7 @@ g_GeometricAlgebra /; System`Private`HoldNotValidQ[g] && geometricAlgebraQ[Uneva
 
 
 GeometricAlgebra /: MakeBoxes[g_GeometricAlgebra /; GeometricAlgebraQ[Unevaluated[g]], form___] := With[{
-    box = Replace[g["Format"], Automatic :> SubscriptBox["\[DoubleStruckCapitalG]", RowBox @ Riffle[ToString /@ Replace[MapAt[Replace[0 -> Nothing], g["Signature"], {3}], {p_, 0} :> {p}], ","]]],
+    box = ToBoxes[Replace[g["Format"], Automatic :> Subscript["\[DoubleStruckCapitalG]", Row @ Riffle[ToString /@ Replace[MapAt[Replace[0 -> Nothing], g["Signature"], {3}], {p_, 0} :> {p}], ","]]], form],
     tooltip = RowBox[{"Geometric Algebra", ToBoxes[g["Signature"], form]}]
 },
     InterpretationBox[box, g, Tooltip -> tooltip]

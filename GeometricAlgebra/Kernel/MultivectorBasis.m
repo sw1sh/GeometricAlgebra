@@ -10,24 +10,24 @@ PackageExport["MultivectorBasis"]
 MultivectorBasis::usage = "MultivectorBasis[A, g] gives a list of multivectors from canonical basis of geometric algebra A with grade g";
 
 
-MultivectorBasis[A_GeometricAlgebra, n_Integer ? Positive | All] := With[{
-    from = If[n === All, 1, binomialSum[A["Dimension"], n - 1] + 1],
-    to = If[n === All, A["Order"], binomialSum[A["Dimension"], n]]
+MultivectorBasis[g_GeometricAlgebra, n_Integer ? Positive | All] := With[{
+    from = If[n === All, 1, binomialSum[g["Dimension"], n - 1] + 1],
+    to = If[n === All, g["Order"], binomialSum[g["Dimension"], n]]
     },
-    Table[Multivector[SparseArray[{k -> 1}, A["Order"]], "GeometricAlgebra" -> A], {k, from, to}]
+    Table[Multivector[SparseArray[{k -> 1}, g["Order"]], "GeometricAlgebra" -> g], {k, from, to}]
 ]
 
-MultivectorBasis[A_GeometricAlgebra, n_Integer ? Negative] := MultivectorBasis[A, A["Dimension"] + n + 1]
+MultivectorBasis[g_GeometricAlgebra, n_Integer ? Negative] := MultivectorBasis[g, g["Dimension"] + n + 1]
 
-MultivectorBasis[A_GeometricAlgebra, 0] := {Multivector[1, A]}
+MultivectorBasis[g_GeometricAlgebra, 0] := {Multivector[1, g]}
 
-MultivectorBasis[A_GeometricAlgebra, "Even"] := Catenate[MultivectorBasis[A, #] & /@ Range[0, A["Dimension"], 2]]
+MultivectorBasis[g_GeometricAlgebra, "Even"] := Catenate[MultivectorBasis[g, #] & /@ Range[0, g["Dimension"], 2]]
 
-MultivectorBasis[A_GeometricAlgebra, "Odd"] := Catenate[MultivectorBasis[A, #] & /@ Range[1, A["Dimension"], 2]]
+MultivectorBasis[g_GeometricAlgebra, "Odd"] := Catenate[MultivectorBasis[g, #] & /@ Range[1, g["Dimension"], 2]]
 
-MultivectorBasis[A_GeometricAlgebra] := MultivectorBasis[A, All]
+MultivectorBasis[g_GeometricAlgebra] := MultivectorBasis[g, All]
 
-MultivectorBasis[A_GeometricAlgebra, {args___}] := Catenate[MultivectorBasis[A, #] & /@ {args}]
+MultivectorBasis[g_GeometricAlgebra, {args___}] := Catenate[MultivectorBasis[g, #] & /@ {args}]
 
 MultivectorBasis[v_Multivector, args___] := MultivectorBasis[v["GeometricAlgebra"], args]
 
@@ -38,17 +38,17 @@ MultivectorBasis[] := MultivectorBasis[All]
 
 (* Basis indexing *)
 
-A_GeometricAlgebra[] := Multivector[1, A]
+g_GeometricAlgebra[] := Multivector[1, g]
 
-A_GeometricAlgebra[indices__Integer] := Multivector[<|{indices} -> 1|>, A]
+g_GeometricAlgebra[indices__Integer] := Multivector[<|{indices} -> 1|>, g]
 
-A_GeometricAlgebra[indices : {___Integer}] := A @@ indices
+g_GeometricAlgebra[indices : {___Integer}] := g @@ indices
 
-A_GeometricAlgebra[indices : {{___Integer} ...}] := A @@@ indices
+g_GeometricAlgebra[indices : {{___Integer} ...}] := g @@@ indices
 
-A_GeometricAlgebra["Basis", args___] := MultivectorBasis[A, args]
+g_GeometricAlgebra["Basis", args___] := MultivectorBasis[g, args]
 
-A_GeometricAlgebra["PseudoBasis", args___] := A["Pseudoscalar"] ** # & /@ MultivectorBasis[A, args]
+g_GeometricAlgebra["PseudoBasis", args___] := GeometricProduct[g["Pseudoscalar"], #] & /@ MultivectorBasis[g, args]
 
-A_GeometricAlgebra["FormatBasis"] := A[A["FormatIndices"]]
+g_GeometricAlgebra["OrderedBasis"] := g[g["OrderedIndices"]]
 

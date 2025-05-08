@@ -17,6 +17,9 @@ PackageExport["ComplexMultivector"]
 PackageExport["GeometricProduct"]
 GeometricProduct::usage = "GeometricProduct[vs__] computes geometric product of multivectors";
 
+PackageExport["AntiGeometricProduct"]
+AntiGeometricProduct::usage = "AntiGeometricProduct[v, w] gives an anti geometric product of multivectors v and w";
+
 PackageExport["Grade"]
 Grade::usage = "Grade[v, n] gives a nth grade of a Multivector v or converts a list to a multivector";
 
@@ -40,6 +43,18 @@ InnerProduct::usage = "InnerProduct[v, w] gives an inner product of multivectors
 
 PackageExport["AntiInnerProduct"]
 AntiInnerProduct::usage = "AntiInnerProduct[v, w] gives an anti inner product of multivectors v and w";
+
+PackageExport["RightInteriorProduct"]
+RightInteriorProduct::usage = "RightInteriorProduct[v, w] gives a right interior product of multivectors v and w";
+
+PackageExport["LeftInteriorProduct"]
+LeftInteriorProduct::usage = "LeftInteriorProduct[v, w] gives a left interior product of multivectors v and w";
+
+PackageExport["RightInteriorAntiProduct"]
+RightInteriorAntiProduct::usage = "RightInteriorAntiProduct[v, w] gives a right interior anti product of multivectors v and w";
+
+PackageExport["LeftInteriorAntiProduct"]
+LeftInteriorAntiProduct::usage = "LeftInteriorAntiProduct[v, w] gives a left interior anti product of multivectors v and w";
 
 PackageExport["BulkExpansion"]
 BulkExpansion::usage = "BulkExpansion[v] gives a bulk expansion of multivector v";
@@ -92,14 +107,26 @@ Involute::usage = "Involute[v] gives a multivector with its odd grades multiplie
 PackageExport["Rejection"]
 Rejection::usage = "Rejection[v, w] gives a rejection of multivector v on w";
 
+PackageExport["OrthoProjection"]
+OrthoProjection::usage = "OrthoProjection[v, w] gives an orthogonal projection of multivector v on w";
+
+PackageExport["CentralProjection"]
+CentralProjection::usage = "CentralProjection[v, w] gives a central projection of multivector v on w";
+
+PackageExport["CentralAntiprojection"]
+CentralAntiprojection::usage = "CentralAntiprojection[v, w] gives a central antiprojection of multivector v on w";
+
+PackageExport["OrthoAntiprojection"]
+OrthoAntiprojection::usage = "OrthoAntiprojection[v, w] gives an orthogonal antiprojection of multivector v on w";
+
 PackageExport["AntiReverse"]
 AntiReverse::usage = "AntiReverse[v] gives a multivector with its even grades multiplied by -1";
 
 PackageExport["AntiDot"]
 AntiDot::usage = "AntiDot[v, w] gives an anti dot product of multivectors v and w";
 
-PackageExport["AntiGeometricProduct"]
-AntiGeometricProduct::usage = "AntiGeometricProduct[v, w] gives an anti geometric product of multivectors v and w";
+PackageExport["Attitude"]
+Attitude::usage = "Attitude[v] gives an attitude of multivector v";
 
 PackageExport["$DefaultMultivectorFormatFunction"]
 $DefaultMultivectorFormatFunction::usage = "$DefaultMultivectorFormatFunction is a default function for formatting multivectors";
@@ -232,7 +259,7 @@ Multivector /: Normal[v_Multivector] := Normal @ v["Coordinates"]
 
 GeometricAlgebra[v_Multivector] := v["GeometricAlgebra"]
 
-(v_Multivector ? MultivectorQ)[prop : Alternatives @@ $GeometricAlgebraProperties, args___] := GeometricAlgebra[v][prop, args]
+(v_Multivector ? MultivectorQ)[prop_String /; MemberQ[$GeometricAlgebraProperties, prop], args___] := GeometricAlgebra[v][prop, args]
 
 
 v_Multivector[f_] := mapCoordinates[f, v]
@@ -355,7 +382,7 @@ Multivector /: Times[x : Except[_Multivector], v_Multivector] := mapCoordinates[
 v_Multivector["Scalar"] := v["Coordinate", 1]
 
 
-v_Multivector["Pseudoscalar"] := If[v["Dimension"] > 0, v["Coordinate", -1], 0]
+v_Multivector["Pseudoscalar"] := If[v["Dimension"] > 0, v[v["PseudoscalarIndex"]], 0]
 
 
 g_GeometricAlgebra["Identity"] := identityMultivector[g]
@@ -484,6 +511,9 @@ Multivector /: NonCommutativeMultiply[left___, v_Multivector, right___] := Geome
 
 (* Product contractions *)
 
+AntiGeometricProduct[vs__Multivector] := OverBar[GeometricProduct @@ UnderBar /@ {vs}]
+
+
 gradeProduct[v_Multivector, w_Multivector] := Outer[GeometricProduct, GradeList[v], GradeList[w]]
 
 gradeFunctionContraction[f_, vs__Multivector] := Fold[Total[MapIndexed[Grade[#1, f[#2 - 1]] &, gradeProduct[##], {2}], 2] &, {vs}]
@@ -514,7 +544,14 @@ AntiInnerProduct[v_Multivector, w_Multivector] := With[{g = mergeGeometricAlgebr
 
 (* AntiInnerProduct[v_Multivector, w_Multivector] := OverBar[InnerProduct[UnderBar[v], UnderBar[w]]] *)
 
-AntiGeometricProduct[vs__Multivector] := OverBar[GeometricProduct @@ UnderBar /@ {vs}]
+RightInteriorProduct[a_Multivector, b_Multivector] := Vee[a, OverBar[b]]
+
+LeftInteriorProduct[a_Multivector, b_Multivector] := Vee[UnderBar[a], b]
+
+RightInteriorAntiProduct[a_Multivector, b_Multivector] := Wedge[a, OverBar[b]]
+
+LeftInteriorAntiProduct[a_Multivector, b_Multivector] := Wedge[UnderBar[a], b]
+
 
 BulkExpansion[v_Multivector, w_Multivector] := Wedge[v, RightBulkDual[w]]
 
@@ -526,7 +563,7 @@ WeightContraction[v_Multivector, w_Multivector] := Vee[v, RightWeightDual[w]]
 
 MultivectorDistance[v_Multivector, w_Multivector] := Vee[v, w] + WeightNorm[Wedge[v, Attitude[w]]]
 
-MultivectorCosAngle[v_Multivector, w_Multivector] := WeightContraction[v, w] + GeometricProduct[WeightNorm[v], WeightNorm[w]]
+MultivectorCosAngle[v_Multivector, w_Multivector] := BulkNorm[WeightContraction[v, w]] + Vee[WeightNorm[v], WeightNorm[w]]
 
 
 (* Inversions *)
@@ -562,7 +599,7 @@ v_Multivector["Conjugate"] = v["Involute"]["Reverse"]
 SuperStar[v_Multivector] ^:= v["Conjugate"]
 
 
-v_Multivector["LeftComplement"] := With[{i = Last @ v["Indices"]},
+v_Multivector["LeftComplement"] := With[{i = v["PseudoscalarIndex"]},
      Multivector[
         Association @ KeyValueMap[
             Function[{j, x}, With[{k = DeleteElements[i, j]}, k -> permutationSignature[i, Join[k, j]] x], HoldAllComplete],
@@ -572,7 +609,7 @@ v_Multivector["LeftComplement"] := With[{i = Last @ v["Indices"]},
     ]
 ]
 
-v_Multivector["RightComplement"] := With[{i = Last @ v["Indices"]},
+v_Multivector["RightComplement"] := With[{i = v["PseudoscalarIndex"]},
      Multivector[
         Association @ KeyValueMap[
             Function[{j, x}, With[{k = DeleteElements[i, j]}, k -> permutationSignature[i, Join[j, k]] x], HoldAllComplete],
@@ -590,6 +627,10 @@ Multivector /: OverBar[v_Multivector] := v["RightComplement"]
 
 v_Multivector["DoubleComplement"] := v["RightComplement"]["RightComplement"]
 
+v_Multivector["Squared"] = GeometricProduct[v, v["Involute"]]
+
+
+(* Projections *)
 
 Multivector /: Projection[v_Multivector, w_Multivector] := GeometricProduct[w, v . w]
 
@@ -597,7 +638,13 @@ Multivector /: Projection[v_Multivector, w_Multivector] := GeometricProduct[w, v
 Rejection[v_Multivector, w_Multivector] := GeometricProduct[Wedge[v, w], w]
 
 
-v_Multivector["Squared"] = GeometricProduct[v, v["Involute"]]
+OrthoProjection[v_Multivector, w_Multivector] := Vee[w, WeightExpansion[v, w]]
+
+OrthoAntiprojection[v_Multivector, w_Multivector] := Wedge[b, WeightContraction[v, w]]
+
+CentralProjection[v_Multivector, w_Multivector] := Vee[w, BulkExpansion[v, w]]
+
+CentralAntiprojection[v_Multivector, w_Multivector] := Wedge[w, BulkContraction[v, w]]
 
 
 (* Inverse *)
@@ -663,7 +710,7 @@ v_Multivector["Grade", arg_] := Grade[v, arg]
 g_GeometricAlgebra["Scalar"] := Multivector[1, g]
 
 
-pseudoscalar[g_GeometricAlgebra] := Multivector[SparseArray[{{-1} -> 1}, g["Order"]], g]
+pseudoscalar[g_GeometricAlgebra] := Multivector[<|g["PseudoscalarIndex"] -> 1|>, g]
 
 pseudoscalar[v_Multivector] := pseudoscalar[GeometricAlgebra[v]]
 
@@ -680,6 +727,14 @@ g_GeometricAlgebra["Nilpotent", n_Integer] := With[{
 
 
 g_GeometricAlgebra["Idempotent", n_Integer] := GeometricProduct[g["Nilpotent", - n], g["Nilpotent", n]]
+
+
+g_GeometricAlgebra["Origin"] := g[g["NonNegativeDimension"]]
+
+Attitude[v_Multivector] := Vee[v, OverBar[GeometricAlgebra[v]["Origin"]]]
+
+
+g_GeometricAlgebra["Infinity"] := g[g["Dimension"]]
 
 
 (* Duals *)
@@ -745,7 +800,7 @@ $DefaultMultivectorFormatFunction = Function[index,
 ]
 
 
-geometricIndexFormat[g_GeometricAlgebra, index_] := With[{format = g["FormatIndex"][[2]]},
+geometricIndexFormat[g_GeometricAlgebra, index_] := With[{format = g["FormatIndex"]},
     Switch[format,
         Automatic,
         $DefaultMultivectorFormatFunction[index]
@@ -784,7 +839,7 @@ Multivector /: MakeBoxes[v : HoldPattern[Multivector[coords_, g_]] /; Multivecto
     gBox = ToBoxes[g, form]
 },
     d = g["Dimension"];
-    indices = g["FormatIndices"];
+    indices = g["OrderedIndices"];
     metric = g["Metric"];
     holdCoords = Which[
         SparseArrayQ[Unevaluated[coords]], (* don't hold elements of a SparseArray object *)
