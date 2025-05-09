@@ -54,6 +54,8 @@ $GeometricAlgebraProperties = {
 
     "PseudoscalarIndex",
     "PseudoscalarSquare",
+
+    "BalancedAlgebra",
     "ComplexAlgebra",
 
     "Zero",
@@ -152,13 +154,21 @@ g_GeometricAlgebra["PseudoscalarSquare"] := Block[{p, q, r},
 ]
 
 
-g_GeometricAlgebra["ComplexAlgebra"] := With[{n = Floor[g["ComplexDimension"] / 2], r = g["DualSignature"]},
+g_GeometricAlgebra["BalancedAlgebra"] := With[{n = Floor[g["ComplexDimension"] / 2], r = g["DualDimension"]},
     If[ OddQ[g["ComplexDimension"]],
         If[ g["PseudoscalarSquare"] == 1,
             GeometricAlgebra[n + 1 + r, n + r],
             GeometricAlgebra[n + r, n + 1 + r]
         ],
         GeometricAlgebra[n + r, n + r]
+    ]
+]
+
+g_GeometricAlgebra["ComplexAlgebra"] := Block[{p, q, r},
+    {p, q, r} = g["Signature"];
+    If[ r > 0,
+        GeometricAlgebra[p + r, q + r],
+        g
     ]
 ]
 
