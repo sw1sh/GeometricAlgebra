@@ -12,7 +12,7 @@ NumberMultivector::usage = "NumberMultivector[x, ga] gives a multivector corresp
 PackageExport["MultivectorNumber"]
 MultivectorNumber::usage = "MultivectorNumber[v] gives a complex number based on scalar and pseudoscalar parts of multivector";
 
-PackageExport["ComplexMultivector"]
+PackageExport["BalancedMultivector"]
 
 PackageExport["GeometricProduct"]
 GeometricProduct::usage = "GeometricProduct[vs__] computes geometric product of multivectors";
@@ -29,6 +29,18 @@ AntiGrade::usage = "AntiGrade[v, n] gives a nth anti grade of a Multivector v or
 PackageExport["GradeList"]
 GradeList::usage = "GradeList[v] gives a list of all grades of multivector";
 
+PackageExport["WedgeProduct"]
+WedgeProduct::usage = "WedgeProduct[v, w] gives a wedge product of multivectors v and w";
+
+PackageExport["AntiWedgeProduct"]
+AntiWedgeProduct::usage = "AntiWedgeProduct[v, w] gives an anti wedge product of multivectors v and w";
+
+PackageExport["DotProduct"]
+DotProduct::usage = "DotProduct[v, w] gives a dot product of multivectors v and w";
+
+PackageExport["AntiDotProduct"]
+AntiDotProduct::usage = "AntiDotProduct[v, w] gives an anti dot product of multivectors v and w";
+
 PackageExport["LeftContraction"]
 LeftContraction::usage = "LeftContraction[v, w] gives a left contraction of multivectors v and w";
 
@@ -37,6 +49,9 @@ RightContraction::usage = "RightContraction[v, w] gives a right contraction of m
 
 PackageExport["ScalarProduct"]
 ScalarProduct::usage = "ScalarProduct[v, w] gives a scalar product of multivectors v and w";
+
+PackageExport["CrossProduct"]
+CrossProduct::usage = "CrossProduct[v, w] gives a cross product of multivectors v and w";
 
 PackageExport["InnerProduct"]
 InnerProduct::usage = "InnerProduct[v, w] gives an inner product of multivectors v and w";
@@ -68,6 +83,12 @@ BulkContraction::usage = "BulkContraction[v, w] gives a bulk contraction of mult
 PackageExport["WeightContraction"]
 WeightContraction::usage = "WeightContraction[v, w] gives a weight contraction of multivectors v and w";
 
+PackageExport["LeftComplement"]
+LeftComplement::usage = "LeftComplement[v] gives a left complement of multivector v";
+
+PackageExport["RightComplement"]
+RightComplement::usage = "RightComplement[v] gives a right complement of multivector v";
+
 PackageExport["LeftDual"]
 LeftDual::usage = "LeftDual[v] gives a left dual of multivector v";
 
@@ -98,6 +119,12 @@ BulkNorm::usage = "BulkNorm[v] gives a bulk norm of multivector v";
 PackageExport["WeightNorm"]
 WeightNorm::usage = "WeightNorm[v] gives a weight norm of multivector v";
 
+PackageExport["GeometricNorm"]
+GeometricNorm::usage = "GeometricNorm[v] gives a geometric norm of multivector v";
+
+PackageExport["WeightUnitize"]
+WeightUnitize::usage = "WeightUnitize[v] gives a multivector v unitized by its weight";
+
 PackageExport["MultivectorCosAngle"]
 MultivectorCosAngle::usage = "MultivectorCosAngle[v, w] gives a cosine of angle between multivectors v and w";
 
@@ -127,9 +154,6 @@ AntiSandwich::usage = "AntiSandwich[v, w] gives an anti sandwich product of mult
 
 PackageExport["AntiReverse"]
 AntiReverse::usage = "AntiReverse[v] gives a multivector with its even grades multiplied by -1";
-
-PackageExport["AntiDot"]
-AntiDot::usage = "AntiDot[v, w] gives an anti dot product of multivectors v and w";
 
 PackageExport["Attitude"]
 Attitude::usage = "Attitude[v] gives an attitude of multivector v";
@@ -247,9 +271,9 @@ MultivectorNumber[x_, args__] := MultivectorNumber[x, GeometricAlgebra[args]]
 MultivectorNumber[x_, ___] := x
 
 
-ComplexMultivector[v_Multivector] := ComplexMultivector[v, GeometricAlgebra[v]]
+BalancedMultivector[v_Multivector] := BalancedMultivector[v, GeometricAlgebra[v]]
 
-ComplexMultivector[v_Multivector, g_GeometricAlgebra] := ConvertGeometricAlgebra[MultivectorNumber[v, g["ComplexAlgebra"]], g]
+BalancedMultivector[v_Multivector, g_GeometricAlgebra] := ConvertGeometricAlgebra[MultivectorNumber[v, g["BalancedAlgebra"]], g]
 
 
 v_Multivector[key : {___Integer}] := #2 Lookup[v["Association"], Key[#1], 0] & @@ orderIndexWithSign[normalIndex[DeleteCases[key, 0], v["Signature"]], v["Dimension"]]
@@ -464,8 +488,6 @@ g_GeometricAlgebra["MetricMultiplicationTable"] := ResourceFunction["GridTableFo
 ]
 
 
-GeometricProduct::usage = "GeometricProduct[v, w] or (v ** w) gives a geometric product of multivectors v and w";
-
 GeometricProduct[v_Multivector, w_Multivector] := With[{
     g = mergeGeometricAlgebra[v, w]
 },
@@ -519,7 +541,7 @@ Multivector /: TensorProduct[v_Multivector, w_Multivector] := Block[{
 Multivector /: NonCommutativeMultiply[left___, v_Multivector, right___] := GeometricProduct[left, v, right]
 
 
-(* Product contractions *)
+(* Products and contractions *)
 
 AntiGeometricProduct[vs__Multivector] := OverBar[GeometricProduct @@ UnderBar /@ {vs}]
 
@@ -532,17 +554,25 @@ LeftContraction[vs__Multivector] := gradeFunctionContraction[Apply[Subtract] @* 
 
 RightContraction[vs__Multivector] := gradeFunctionContraction[Apply[Subtract], vs]
 
-Multivector /: Dot[vs__Multivector] := gradeFunctionContraction[Abs @* Apply[Subtract], vs]
+DotProduct[vs__Multivector] := gradeFunctionContraction[Abs @* Apply[Subtract], vs]
+
+Multivector /: Dot[vs__Multivector] := DotProduct[vs]
+
+WedgeProduct[vs__Multivector] := gradeFunctionContraction[Apply[Plus], vs]
 
 Multivector /: Wedge[vs__Multivector] := gradeFunctionContraction[Apply[Plus], vs]
 
-Multivector /: Vee[vs__Multivector] := OverBar[Wedge @@ UnderBar /@ {vs}]
+AntiWedgeProduct[vs__Multivector] := OverBar[Wedge @@ UnderBar /@ {vs}]
 
-Multivector /: Cross[vs__Multivector] := UnderBar[Wedge[vs]]
+Multivector /: Vee[vs__Multivector] := AntiWedgeProduct[vs]
+
+CrossProduct[vs__Multivector] := UnderBar[Wedge[vs]]
+
+Multivector /: Cross[vs__Multivector] := CrossProduct[vs]
 
 ScalarProduct[vs__Multivector] := Grade[GeometricProduct[vs], 0]
 
-AntiDot[vs__Multivector] := OverBar[Dot @@ UnderBar /@ {vs}]
+AntiDotProduct[vs__Multivector] := OverBar[Dot @@ UnderBar /@ {vs}]
 
 InnerProduct[v_Multivector, w_Multivector] := With[{g = mergeGeometricAlgebra[v, w]},
     Multivector[Multivector[w, g]["Coordinates"] . g["ExomorphismMatrix"] . Multivector[v, g]["Coordinates"], g]
@@ -609,17 +639,7 @@ v_Multivector["Conjugate"] = v["Involute"]["Reverse"]
 SuperStar[v_Multivector] ^:= v["Conjugate"]
 
 
-v_Multivector["LeftComplement"] := With[{i = v["PseudoscalarIndex"]},
-     Multivector[
-        Association @ KeyValueMap[
-            Function[{j, x}, With[{k = DeleteElements[i, j]}, k -> permutationSignature[i, Join[k, j]] x], HoldAllComplete],
-            v["Association"]
-        ],
-        v["GeometricAlgebra"]
-    ]
-]
-
-v_Multivector["RightComplement"] := With[{i = v["PseudoscalarIndex"]},
+LeftComplement[v_Multivector] := With[{i = v["PseudoscalarIndex"]},
      Multivector[
         Association @ KeyValueMap[
             Function[{j, x}, With[{k = DeleteElements[i, j]}, k -> permutationSignature[i, Join[j, k]] x], HoldAllComplete],
@@ -628,6 +648,20 @@ v_Multivector["RightComplement"] := With[{i = v["PseudoscalarIndex"]},
         v["GeometricAlgebra"]
     ]
 ]
+
+v_Multivector["LeftComplement"] := LeftComplement[v]
+
+RightComplement[v_Multivector] :=  With[{i = v["PseudoscalarIndex"]},
+     Multivector[
+        Association @ KeyValueMap[
+            Function[{j, x}, With[{k = DeleteElements[i, j]}, k -> permutationSignature[i, Join[j, k]] x], HoldAllComplete],
+            v["Association"]
+        ],
+        v["GeometricAlgebra"]
+    ]
+]
+
+v_Multivector["RightComplement"] := RightComplement[v]
 
 
 Multivector /: UnderBar[v_Multivector] := v["LeftComplement"]
@@ -780,11 +814,13 @@ v_Multivector["WeightNorm"] := WeightNorm[v]
 
 WeightNorm[v_Multivector] := AntiInnerProduct[v, v][Sqrt]
 
-v_Multivector["Norm" | "GeometricNorm"] := v["BulkNorm"] + v["WeightNorm"]
+GeometricNorm[v_Multivector] := BulkNorm[v] + WeightNorm[v]
 
-Multivector /: Norm[v_Multivector] := v["Norm"]
+v_Multivector["Norm" | "GeometricNorm"] := GeometricNorm[v]
 
-\[LeftDoubleBracketingBar] v_Multivector \[RightDoubleBracketingBar] := v["Norm"]
+Multivector /: Norm[v_Multivector] := GeometricNorm[GeometricNorm]
+
+\[LeftDoubleBracketingBar] v_Multivector \[RightDoubleBracketingBar] := GeometricNorm[v]
 
 v_Multivector["CoordinateNorm"] := Norm[v["Coordinates"]]
 
@@ -792,9 +828,11 @@ v_Multivector["Normalize"] := v / v["Norm"]
 
 Multivector /: Normalize[v_Multivector] := v["Normalize"]
 
-v_Multivector["Unitize" | "WeightUnitize"] := v / WeightNorm[v]["Pseudoscalar"]
+WeightUnitize[v_Multivector] := v / WeightNorm[v]["Pseudoscalar"]
 
-Multivector /: OverHat[v_Multivector] := v["Unitize"]
+v_Multivector["Unitize" | "WeightUnitize"] := WeightUnitize[v]
+
+Multivector /: (Unitize | OverHat)[v_Multivector] := WeightUnitize[v]
 
 v_Multivector["Tr"] := v + v["Conjugate"]
 
@@ -814,11 +852,11 @@ RandomMultivector[arg_, g_GeometricAlgebra] := Multivector[RandomReal[arg, g["Or
 
 RandomMultivector[arg_, n_Integer, g_GeometricAlgebra] := Table[RandomMultivector[arg, g], n]
 
-RandomMultivector[arg : Except[_GeometricAlgebra]] := RandomMultivector[arg, GeometricAlgebra[]]
+RandomMultivector[arg_, args___] := RandomMultivector[arg, GeometricAlgebra[args]]
 
 RandomMultivector[args___, n_Integer] := Table[RandomMultivector[args], n]
 
-RandomMultivector[args___] := RandomMultivector[{-1, 1}, args]
+RandomMultivector[args___] := RandomMultivector[{-1, 1}, GeometricAlgebra[args]]
 
 
 (* Formatting *)
@@ -936,22 +974,22 @@ Multivector /: MakeBoxes[v : HoldPattern[Multivector[coords_, g_]] /; Multivecto
 
 (* Frontend *)
 
+binaryOperationBox[f_String, infix_String] := TemplateBox[
+    {"\[Placeholder]", "\[Placeholder]"},
+    f,
+    InterpretationFunction -> (RowBox[{f, "[", #1, ",", #2, "]"}] &),
+    DisplayFunction -> (RowBox[{#1, infix, #2}] &)
+]
+
 UsingFrontEnd[
     SetOptions[EvaluationNotebook[],
         InputAliases -> {
-            "gp" ->
-                TemplateBox[{"\[Placeholder]", "\[Placeholder]"},
-                    "GeometricProduct",
-                    InterpretationFunction -> (RowBox[{#1, "**", #2}] &),
-                    DisplayFunction -> (RowBox[{#1, "⟑", #2}] &)
-                ]
-            ,
-            "agp" ->
-                TemplateBox[{"\[Placeholder]", "\[Placeholder]"},
-                    "AntiGeometricProduct",
-                    InterpretationFunction -> (RowBox[{"AntiGeometricProduct", "[", #1, ",", #2, "]"}] &),
-                    DisplayFunction -> (RowBox[{#1, "⟇", #2}] &)
-                ]
+            "gp" -> binaryOperationBox["GeometricProduct", "⟑"],
+            "agp" -> binaryOperationBox["AntiGeometricProduct", "⟇"],
+            "wedge" -> binaryOperationBox["WedgeProduct", "\[Wedge]"],
+            "awedge" -> binaryOperationBox["AntiWedgeProduct", "\[Vee]"],
+            "dot" -> binaryOperationBox["InnerProduct", "\[FilledSmallCircle]"],
+            "adot" -> binaryOperationBox["AntiInnerProduct", "\[SmallCircle]"]
         }
     ]
 ]
