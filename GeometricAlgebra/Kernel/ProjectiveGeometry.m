@@ -3,6 +3,7 @@ Package["Wolfram`GeometricAlgebra`ProjectiveGeometry`"]
 PackageImport["Wolfram`GeometricAlgebra`"]
 
 PackageExport[PGA]
+PackageExport[PGAQ]
 PackageExport[$PGA]
 PackageExport[$2DPGA]
 PackageExport[PGAOrigin]
@@ -20,10 +21,6 @@ PackageExport[PGAReflector]
 PackageExport[PGARotor]
 PackageExport[PGAMotor]
 PackageExport[PGAFlector]
-
-PackageExport[PGAAttitude]
-PackageExport[PGASupport]
-PackageExport[PGAAntisupport]
 
 PackageExport[PGAExpansion]
 PackageExport[PGAContraction]
@@ -59,6 +56,8 @@ i2 = e2[1, 2, 3]
 moment = e[{{2, 3}, {3, 1}, {1, 2}}]
 
 
+PGAQ[x : _GeometricAlgebra | _Multivector] := MatchQ[x["Signature"], {_, 0, 1}]
+
 PGA2DQ[x : _GeometricAlgebra | _Multivector] := x["Signature"] === {2, 0, 1}
 
 PGA2DQ[___] := False
@@ -68,12 +67,6 @@ PGA3DQ[x : _GeometricAlgebra | _Multivector] := x["Signature"] === {3, 0, 1}
 PGA3DQ[___] := False
 
 
-PGAOrigin[_ ? PGA2DQ] := $2DPGA[3]
-
-PGAOrigin[_ ? PGA3DQ] := $3DPGA[4]
-
-
-pseudoVector[v : {_, _, _}] := Reverse[v] {1, -1, 1}
 
 (* Constructors *)
 
@@ -96,19 +89,19 @@ PGAPoint[p_List, w_ : 1] := Grade[Append[p, w], 1, PGA[Length[p]]]
 PGALine[(Line | InfiniteLine)[{p_, q_}]] := Wedge[PGAPoint[p], PGAPoint[q]]
 PGALine[InfiniteLine[p : {_, _, _}, v : {_, _, _}]] := PGALine[v, Cross[p, v]]
 PGALine[InfiniteLine[p : {_, _}, {x_, y_}]] := PGALine[{y, -x}, Norm[p]]
-PGALine[x_Multivector ? PGA2DQ] := Enclose[InfiniteLine[First @ Confirm @ PGAPoint[PGASupport[x]], x[{{3, 1}, {3, 2}}]], Missing["Line"] &]
-PGALine[x_Multivector ? PGA3DQ] := Enclose[InfiniteLine[First @ Confirm @ PGAPoint[PGASupport[x]], x[{{4, 1}, {4, 2}, {4, 3}}]], Missing["Line"] &]
+PGALine[x_Multivector ? PGA2DQ] := Enclose[InfiniteLine[First @ Confirm @ PGAPoint[Support[x]], x[{{3, 1}, {3, 2}}]], Missing["Line"] &]
+PGALine[x_Multivector ? PGA3DQ] := Enclose[InfiniteLine[First @ Confirm @ PGAPoint[Support[x]], x[{{4, 1}, {4, 2}, {4, 3}}]], Missing["Line"] &]
 PGALine[n : {_, _}, d_ : 0] := n . e2[{{2, 3}, {3, 1}}] + d e2[1, 2] 
 PGALine[v : {_, _, _}, m : {_, _, _}] := e[4] ** PGAVector[v] + m . moment
 
-PGAPlane[InfinitePlane[p : {_, _, _}, {u : {_, _, _}, v : {_, _, _}}]] := Wedge[PGAPoint[p], PGAPoint[p + u] PGAPoint[p + v]]
+PGAPlane[InfinitePlane[p : {_, _, _}, {u : {_, _, _}, v : {_, _, _}}]] := Wedge[PGAPoint[p], PGAPoint[p + u], PGAPoint[p + v]]
 PGAPlane[(Triangle | InfinitePlane)[{p1 : {_, _, _}, p2 : {_, _, _}, p3 : {_, _, _}}]] := Wedge[PGAPoint[p1], PGAPoint[p2], PGAPoint[p3]]
 PGAPlane[Hyperplane[n : {_, _, _}, p : {_, _, _}]] := PGAPlane[n, - n . p / Norm[n]]
 PGAPlane[Hyperplane[n : {_, _, _}, d_]] := PGAPlane[n, - d]
 PGAPlane[x_Multivector ? PGA3DQ] := With[{n = x[{{4, 2, 3}, {4, 3, 1}, {4, 1, 2}}], w = x[3, 2, 1]},
     Switch[Norm[n] != 0, False, Missing["Plane"], _, Hyperplane[n, - w]]
 ]
-PGAPlane[n : {_, _, _} : {0, 0, 1}, w_ : 1] := Grade[Prepend[pseudoVector[n], - w], 3, $PGA]
+PGAPlane[n : {_, _, _} : {0, 0, 1}, w_ : 1] := n . e[{{4, 2, 3}, {4, 3, 1}, {4, 1, 2}}] + w e[3, 2, 1]
 
 QuaternionToRotationMatrix[r_, x_, y_, z_] := With[{aim = Norm[{x, y, z}]},
 	If[aim == 0, Return[IdentityMatrix[3]]];
@@ -149,11 +142,6 @@ PGAFlector[f_Multivector] := PGAReflector[f] @* PGARotor[AntiGeometricProduct[f,
 
 (* Unary operations *)
 
-PGAAttitude[v_Multivector] := Vee[v, OverBar[PGAOrigin[v]]]
-
-PGASupport[v_Multivector] := OrthoProjection[PGAOrigin[v], v]
-
-PGAAntisupport[v_Multivector] := CentralAntiprojection[OverBar[PGAOrigin[v]], v]
 
 
 (* Binary operations *)
@@ -168,7 +156,7 @@ PGAExpansion = WeightExpansion
 PGAContraction = WeightContraction
 
 
-PGADistance[a_Multivector, b_Multivector] := BulkNorm[PGAAttitude[Wedge[a, b]]] + WeightNorm[Wedge[a, PGAAttitude[b]]]
+PGADistance[a_Multivector, b_Multivector] := BulkNorm[Attitude[Wedge[a, b]]] + WeightNorm[Wedge[a, Attitude[b]]]
 
 
 (* Transforms *)
@@ -186,6 +174,10 @@ RegionPGA[line : _Line | _InfiniteLine] := PGALine[line]
 
 RegionPGA[plane : _Triangle | _InfinitePlane | _Hyperplane] := PGAPlane[plane]
 
+RegionPGA[s_Sphere] := CGASphere[s]
+
+RegionPGA[d_Tube] := CGADipole[d]
+
 
 (* Region export *)
 
@@ -194,14 +186,27 @@ PGARegions[v_Multivector] /; PGA2DQ[v] := DeleteMissing @ <|"Vector" -> Arrow[{{
 PGARegions[v_Multivector] /; PGA3DQ[v] := DeleteMissing @ <|"Vector" -> Arrow[{{0, 0, 0}, PGAVector[v]}], "Point" -> PGAPoint[v] ,"Line" -> PGALine[v] ,"Plane" -> PGAPlane[v]|>
 
 
+
 (* Overwrite mulitivector functions for regions *)
 
-$PGARegion = _Point | _InfiniteLine | _Triangle | _InfinitePlane | _Hyperplane
+$RGARegion = _Point | _InfiniteLine | _InfinitePlane | _Hyperplane
+
+$CGARegion = _Sphere
+
+$PGARegion = $RGARegion | $CGARegion
+
 
 Scan[
     Function[f,
-        With[{rule = HoldPattern[f[left___, x_ ? (MatchQ[$PGARegion]), right___]] :> f[left, RegionPGA[x], right]},
-            If[! MemberQ[DownValues[f], Verbatim[rule]], PrependTo[DownValues[f], rule]]
+        Scan[
+            rule |-> If[! MemberQ[DownValues[f], Verbatim[rule]], PrependTo[DownValues[f], rule]],
+            {
+                HoldPattern[f[left___, x_ ? (MatchQ[$PGARegion]), right___]] :> f[left, RegionPGA[x], right],
+                HoldPattern[f[left___, vs__Multivector, right___] /; AnyTrue[{vs}, PGAQ] && AnyTrue[{vs}, CGAQ]] :>
+                    With[{g = largestGeometricAlgebra[vs]},
+                        f[left, ##, right] & @@ ToCGA /@ {vs} 
+                    ]
+            }
         ]
     ],
     {
@@ -224,8 +229,7 @@ Scan[
         OrthoProjection, CentralProjection,
         OrthoAntiprojection, CentralAntiprojection,
 
-        PGAProjection, PGARejection,
-        PGASupport, PGAAntisupport, PGAAttitude
+        PGAProjection, PGARejection
     }
 ]
 

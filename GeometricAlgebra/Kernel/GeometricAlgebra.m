@@ -26,6 +26,7 @@ $GeometricAlgebraProperties = {
     "Dimension",
     "DualDimension",
     "ComplexDimension",
+    "NegativeDimension",
     "NonNegativeDimension",
 
     "Order",
@@ -109,9 +110,11 @@ g_GeometricAlgebra["Metric"] := Replace[g["VectorBasis"], {
 
 g_GeometricAlgebra["ComplexSignature"] := g["Signature"][[;; 2]]
 
-g_GeometricAlgebra["DualSignature" | "DualDimension"] := g["Signature"][[-1]]
+g_GeometricAlgebra["DualSignature" | "DualDimension"] := g["Signature"][[3]]
 
 g_GeometricAlgebra["Dimension"] := Total @ g["Signature"]
+
+g_GeometricAlgebra["NegativeDimension"] := g["Signature"][[2]]
 
 g_GeometricAlgebra["NonNegativeDimension"] := Total @ g["Signature"][[{1, 3}]]
 
@@ -183,7 +186,7 @@ g_GeometricAlgebra["ReIndices"] := Cases[g["Indices"], _List ? (FreeQ[#, middleI
 g_GeometricAlgebra["ImIndexSigns"] := With[{i = Last @ g["Indices"]}, Rule @@ KeyMap[Reverse] @ multiplyIndices[i, #, g["Metric"]] & /@ g["ReIndices"]]
 
 
-GeometricAlgebra /: Equal[gs__GeometricAlgebra]:= Equal @@ (#["Signature"] & /@ {gs})
+GeometricAlgebra /: Equal[gs__GeometricAlgebra]:= Equal @@ Through[{gs}["Signature"]] && Equal @@ Through[{gs}["VectorBasis"]] 
 
 
 g_GeometricAlgebra /; System`Private`HoldNotValidQ[g] && geometricAlgebraQ[Unevaluated[g]] := System`Private`SetNoEntry[System`Private`HoldSetValid[g]]

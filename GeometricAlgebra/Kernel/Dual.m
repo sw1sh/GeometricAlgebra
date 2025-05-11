@@ -107,8 +107,8 @@ Dual /: expr : f_[___, _Dual, ___] /; MatchQ[f, _Function] || numericFunctionQ[f
     applyDuals[f, Dual /@ List @@ Unevaluated[expr]]
 
 
-Dual[vs__Multivector] := With[{G = First @ MaximalBy[#["GeometricAlgebra"] & /@ {vs}, #["Order"] &]},
-    Multivector[MapThread[Dual, Multivector[#, G]["Coordinates"] & /@ {vs}], G]
+Dual[vs__Multivector] := With[{g = largestGeometricAlgebra[vs]},
+    Multivector[MapThread[Dual, Multivector[#, G]["Coordinates"] & /@ {vs}], g]
 ]
 
 Dual[vs : PatternSequence[___, v_Multivector, ___]] := Apply[Dual, Multivector[#, v["GeometricAlgebra"]] & /@ {vs}]

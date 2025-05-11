@@ -9,6 +9,7 @@ PackageScope[hasDefinitionsQ]
 PackageScope[permutationSignature]
 PackageScope[mergeOptions]
 PackageScope[mergeGeometricAlgebra]
+PackageScope[largestGeometricAlgebra]
 PackageScope[constantFunction]
 PackageScope[functionBody]
 PackageScope[reduceFunctions]
@@ -66,8 +67,12 @@ mergeOptions[opts_, drop_: False] := Sequence @@ Normal @ Merge[If[drop, DeleteC
 
 mergeGeometricAlgebra[vs__Multivector] := GeometricAlgebra[
     MapThread[Max, #["GeometricAlgebra"]["Signature"] & /@ {vs}],
-    mergeOptions[Normal @ KeyDrop[Options[#["GeometricAlgebra"]], "Signature"] & /@ {vs}, True]
+    mergeOptions[Normal @ KeyDrop[Options[#["GeometricAlgebra"]], {"Signature", If[Equal @@ Through[{vs}["Dimension"]], Nothing, "VectorBasis"]}] & /@ {vs}, True]
 ]
+
+largestGeometricAlgebra[vs__Multivector] := largestGeometricAlgebra[{vs}]
+
+largestGeometricAlgebra[vs : {__Multivector}] := First @ MaximalBy[GeometricAlgebra /@ vs, #["Dimensionn"] &]
 
 
 constantFunction[f_Function] := f

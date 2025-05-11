@@ -41,7 +41,7 @@ $MultivectorArrayProperties = {
 MultivectorArray[vs_, shape : {___Integer}] /; vs =!= {} && ArrayQ[vs, _, MatchQ[_MultivectorArray]] :=
     MultivectorArray[
         Map[#["Components"] &, vs, {ArrayDepth[vs]}],
-        Join[shape, First[Through[MaximalBy[Flatten @ vs, #["Rank"] &]["Shape"]], {}]]
+        Join[shape, largestGeometricAlgebra[Flatten[vs]]]
     ]
 
 MultivectorArray[vs_, shape_] /; vs =!= {} && ArrayQ[vs] && ! ArrayQ[vs, _, MultivectorQ] :=

@@ -102,9 +102,11 @@ PackageExport["Weight"]
 Weight::usage = "Weight[v] gives a weight of multivector v";
 
 PackageExport["RightBulkDual"]
+PackageExport["BulkDual"]
 RightBulkDual::usage = "RightBulkDual[v] gives a right bulk dual of multivector v";
 
 PackageExport["RightWeightDual"]
+PackageExport["WeightDual"]
 RightWeightDual::usage = "RightWeightDual[v] gives a right weight dual of multivector v";
 
 PackageExport["LeftBulkDual"]
@@ -112,6 +114,30 @@ LeftBulkDual::usage = "LeftBulkDual[v] gives a left bulk dual of multivector v";
 
 PackageExport["LeftWeightDual"]
 LeftWeightDual::usage = "LeftWeightDual[v] gives a left weight dual of multivector v";
+
+PackageExport["FlatPart"]
+FlatPart::usage = "FlatPart[v] gives a flat part of multivector v";
+
+PackageExport["RoundPart"]
+RoundPart::usage = "RoundPart[v] gives a round part of multivector v";
+
+PackageExport["RoundBulk"]
+RoundBulk::usage = "RoundBulk[v] gives a round bulk of multivector v";
+
+PackageExport["FlatBulk"]
+FlatBulk::usage = "FlatBulk[v] gives a flat bulk of multivector v";
+
+PackageExport["RoundWeight"]
+RoundWeight::usage = "RoundWeight[v] gives a round weight of multivector v";
+
+PackageExport["FlatWeight"]
+FlatWeight::usage = "FlatWeight[v] gives a flat weight of multivector v";
+
+PackageExport["Carrier"]
+Carrier::usage = "Carrier[v] gives a carrier of multivector v";
+
+PackageExport["Cocarrier"]
+Cocarrier::usage = "Cocarrier[v] gives a cocarrier of multivector v";
 
 PackageExport["BulkNorm"]
 BulkNorm::usage = "BulkNorm[v] gives a bulk norm of multivector v";
@@ -158,6 +184,12 @@ AntiReverse::usage = "AntiReverse[v] gives a multivector with its even grades mu
 PackageExport["Attitude"]
 Attitude::usage = "Attitude[v] gives an attitude of multivector v";
 
+PackageExport["Support"]
+Support::usage = "Support[v] gives a support of multivector v";
+
+PackageExport["AntiSupport"]
+AntiSupport::usage = "AntiSupport[v] gives an anti support of multivector v";
+
 PackageExport["$DefaultMultivectorFormatFunction"]
 $DefaultMultivectorFormatFunction::usage = "$DefaultMultivectorFormatFunction is a default function for formatting multivectors";
 
@@ -179,7 +211,7 @@ Options[Multivector] = {
 }
 
 
-multivectorQ[HoldPattern[Multivector[coords_ ? VectorQ, g_ ? GeometricAlgebraQ]]] := Length[coords] == g["Order"]
+multivectorQ[HoldPattern[Multivector[coords_ /; MatchQ[coords, _SparseArray ? SparseArrayQ] || VectorQ[Unevaluated[coords]], g_ ? GeometricAlgebraQ]]] := Length[coords] == g["Order"]
 
 multivectorQ[___] := False
 
@@ -362,22 +394,8 @@ v_Multivector /; System`Private`HoldNotValidQ[v] && multivectorQ[Unevaluated[v]]
 
 Multivector[v_Multivector, g_GeometricAlgebra] /; GeometricAlgebra[v] === g := v
 
-Multivector[v_Multivector, g_GeometricAlgebra] := With[{index = PositionIndex[g["Indices"]], indices = v["Indices"]},
-    Multivector[
-        SparseArray[
-            MapApply[
-                With[{
-                    pos = Lookup[index, Key[Extract[indices, #1]]]
-                },
-                    If[MissingQ[pos], Nothing, pos -> #2]
-                ] &,
-                Most @ ArrayRules @ v["Coordinates"]
-            ],
-            g["Order"]
-        ],
-        g
-    ]
-]
+Multivector[v_Multivector, g_GeometricAlgebra] := Multivector[v["Association"], g]
+
 
 (* Addition *)
 
@@ -387,7 +405,7 @@ zeroMultivector[v_Multivector] := zeroMultivector[GeometricAlgebra[v]]
 
 
 Multivector /: Plus[vs__Multivector] /; Length[{vs}] > 1 := Block[{
-    g = mergeGeometricAlgebra[vs],
+    g = largestGeometricAlgebra[vs],
     ws
 },
     ws = Multivector[#, g] & /@ {vs};
@@ -437,14 +455,10 @@ g_GeometricAlgebra["MetricMultiplicationTensor"] := g["MetricMultiplicationTenso
 ]
 
 g_GeometricAlgebra["ExomorphismMatrix"] := g["ExomorphismMatrix"] =
-    SparseArray @ With[{metric = g["Metric"]}, Wedge[##]["Coordinates"] & @@@ Replace[Map[Grade[Transpose[metric[[All, #]]], 1, g] &, g["Indices"], {2}], {} -> {g[]}, 1]]
+    SparseArray @ With[{metric = g["Metric"]}, Wedge[##]["Coordinates"] & @@@ Replace[Map[Grade[metric[[All, #]], 1, g] &, g["Indices"], {2}], {} -> {g[]}, 1]]
 
-g_GeometricAlgebra["AntiExomorphismMatrix"] := With[{perm = FindPermutation[g["Indices"], g["DualIndices"]]},
-    Permute[Transpose[Permute[g["ExomorphismMatrix"], perm]], perm]
-]
-    
+g_GeometricAlgebra["AntiExomorphismMatrix"] := g["AntiExomorphismMatrix"] = Transpose @ SparseArray[UnderBar[Bulk[OverBar[#]]]["Coordinates"] & /@ g["Basis"]]
 
-(* g_GeometricAlgebra["AntiExomorphismMatrix"] := g["AntiExomorphismMatrix"] = Det[g["Metric"]] * SparseArray[PseudoInverse[g["ExomorphismMatrix"]]] *)
 
 Bulk[v_Multivector] := With[{g = GeometricAlgebra[v]}, Multivector[g["ExomorphismMatrix"] . v["Coordinates"], g]]
 
@@ -470,6 +484,50 @@ LeftBulkDual[v_] := UnderBar[Bulk[v]]
 
 LeftWeightDual[v_] := UnderBar[Weight[v]]
 
+BulkDual = RightBulkDual
+
+WeightDual = RightWeightDual
+
+
+FlatPart[v_Multivector] := Multivector[KeySelect[v["Association"], Not @* FreeQ[- v["NegativeDimension"]]], GeometricAlgebra[v]]
+
+RoundPart[v_Multivector] := Multivector[KeySelect[v["Association"], FreeQ[- v["NegativeDimension"]]], GeometricAlgebra[v]]
+
+RoundBulk[v_Multivector] := Multivector[KeySelect[v["Association"], FreeQ[v["NonNegativeDimension"] | - v["NegativeDimension"]]], GeometricAlgebra[v]]
+
+RoundWeight[v_Multivector] := Multivector[KeySelect[v["Association"], ! FreeQ[#, v["NonNegativeDimension"]] && FreeQ[#, - v["NegativeDimension"]] &], GeometricAlgebra[v]]
+
+FlatBulk[v_Multivector] := Multivector[KeySelect[v["Association"], FreeQ[#, v["NonNegativeDimension"]] && ! FreeQ[#, - v["NegativeDimension"]] &], GeometricAlgebra[v]]
+
+FlatWeight[v_Multivector] := Multivector[KeySelect[v["Association"], ! FreeQ[#, v["NonNegativeDimension"]] && ! FreeQ[#, - v["NegativeDimension"]] &], GeometricAlgebra[v]]
+
+
+Carrier[v_Multivector] := Wedge[v, GeometricAlgebra[v]["Infinity"]]
+
+Cocarrier[v_Multivector] := Wedge[WeightDual[v], GeometricAlgebra[v]["Infinity"]]
+
+v_Multivector["FlatPart"] := FlatPart[v]
+
+v_Multivector["RoundPart"] := RoundPart[v]
+
+v_Multivector["RoundBulk"] := Bulk[v]
+
+v_Multivector["FlatBulk"] := FlatBulk[v]
+
+v_Multivector["RoundWeight"] := Weight[v]
+
+v_Multivector["FlatWeight"] := FlatWeight[v]
+
+v_Multivector["Carrier"] := Carrier[v]
+
+v_Multivector["Cocarrier"] := Cocarrier[v]
+
+v_Multivector["Center"] := Vee[Cocarrier[v], v]
+
+v_Multivector["Container"] := Wedge[v, WeightDual[Carrier[v]]]
+
+v_Multivector["Partner"] := Vee[WeightDual[v]["Container"], v["Carrier"]]
+
 
 switchDualSide[v_Multivector] :=
     Multivector[
@@ -489,7 +547,7 @@ g_GeometricAlgebra["MetricMultiplicationTable"] := ResourceFunction["GridTableFo
 
 
 GeometricProduct[v_Multivector, w_Multivector] := With[{
-    g = mergeGeometricAlgebra[v, w]
+    g = largestGeometricAlgebra[v, w]
 },
     Multivector[
         Flatten[Outer[coordinateTimes, Multivector[v, g]["Coordinates"], Multivector[w, g]["Coordinates"], 1], 1] . Flatten[g["MetricMultiplicationTensor"], 1],
@@ -574,11 +632,11 @@ ScalarProduct[vs__Multivector] := Grade[GeometricProduct[vs], 0]
 
 AntiDotProduct[vs__Multivector] := OverBar[Dot @@ UnderBar /@ {vs}]
 
-InnerProduct[v_Multivector, w_Multivector] := With[{g = mergeGeometricAlgebra[v, w]},
+InnerProduct[v_Multivector, w_Multivector] := With[{g = largestGeometricAlgebra[v, w]},
     Multivector[Multivector[w, g]["Coordinates"] . g["ExomorphismMatrix"] . Multivector[v, g]["Coordinates"], g]
 ]
 
-AntiInnerProduct[v_Multivector, w_Multivector] := With[{g = mergeGeometricAlgebra[v, w]},
+AntiInnerProduct[v_Multivector, w_Multivector] := With[{g = largestGeometricAlgebra[v, w]},
     Grade[{Multivector[w, g]["Coordinates"] . g["AntiExomorphismMatrix"] . Multivector[v, g]["Coordinates"]}, -1, g]
 ]
 
@@ -780,10 +838,15 @@ g_GeometricAlgebra["Idempotent", n_Integer] := GeometricProduct[g["Nilpotent", -
 
 g_GeometricAlgebra["Origin"] := g[g["NonNegativeDimension"]]
 
-Attitude[v_Multivector] := Vee[v, OverBar[GeometricAlgebra[v]["Origin"]]]
+g_GeometricAlgebra["Horizon"] := OverBar[g["Origin"]]
 
+g_GeometricAlgebra["Infinity"] := g[- g["NegativeDimension"]]
 
-g_GeometricAlgebra["Infinity"] := g[g["Dimension"]]
+Attitude[v_Multivector] := Vee[v, v["Horizon"]]
+
+Support[v_Multivector] := OrthoProjection[v["Origin"], v]
+
+Antisupport[v_Multivector] := CentralAntiprojection[v["Horizon"], v]
 
 
 (* Duals *)
@@ -810,7 +873,7 @@ v_Multivector["BulkNorm"] := BulkNorm[v]
 
 BulkNorm[v_Multivector] := InnerProduct[v, v][Sqrt]
 
-v_Multivector["WeightNorm"] := WeightNorm[v]
+v_Multivector["WeightNorm" | "RadiusNorm"] := WeightNorm[v]
 
 WeightNorm[v_Multivector] := AntiInnerProduct[v, v][Sqrt]
 
@@ -818,9 +881,13 @@ GeometricNorm[v_Multivector] := BulkNorm[v] + WeightNorm[v]
 
 v_Multivector["Norm" | "GeometricNorm"] := GeometricNorm[v]
 
-Multivector /: Norm[v_Multivector] := GeometricNorm[GeometricNorm]
+Multivector /: Norm[v_Multivector] := GeometricNorm[v]
 
 \[LeftDoubleBracketingBar] v_Multivector \[RightDoubleBracketingBar] := GeometricNorm[v]
+
+v_Multivector["Radius"] := v["RadiusNorm"] / WeightNorm[RoundPart[v]]
+
+v_Multivector["CenterNorm"] := Sqrt[BulkNorm[RoundPart[v]] ^ 2 + WeightNorm[FlatPart[v]] ^ 2]
 
 v_Multivector["CoordinateNorm"] := Norm[v["Coordinates"]]
 
@@ -850,13 +917,15 @@ Multivector /: Det[v_Multivector] := v["Det"]
 
 RandomMultivector[arg_, g_GeometricAlgebra] := Multivector[RandomReal[arg, g["Order"]], g]
 
+RandomMultivector[g_GeometricAlgebra] := RandomMultivector[{-1, 1}, g]
+
 RandomMultivector[arg_, n_Integer, g_GeometricAlgebra] := Table[RandomMultivector[arg, g], n]
 
 RandomMultivector[arg_, args___] := RandomMultivector[arg, GeometricAlgebra[args]]
 
 RandomMultivector[args___, n_Integer] := Table[RandomMultivector[args], n]
 
-RandomMultivector[args___] := RandomMultivector[{-1, 1}, GeometricAlgebra[args]]
+RandomMultivector[args___] := RandomMultivector[GeometricAlgebra[args]]
 
 
 (* Formatting *)
