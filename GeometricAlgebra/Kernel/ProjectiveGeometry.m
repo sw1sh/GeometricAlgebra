@@ -174,6 +174,8 @@ RegionPGA[line : _Line | _InfiniteLine] := PGALine[line]
 
 RegionPGA[plane : _Triangle | _InfinitePlane | _Hyperplane] := PGAPlane[plane]
 
+RegionPGA[b_Ball] := CGARoundPoint[b]
+
 RegionPGA[s_Sphere] := CGASphere[s]
 
 RegionPGA[d_Tube] := CGADipole[d]
@@ -189,9 +191,9 @@ PGARegions[v_Multivector] /; PGA3DQ[v] := DeleteMissing @ <|"Vector" -> Arrow[{{
 
 (* Overwrite mulitivector functions for regions *)
 
-$RGARegion = _Point | _InfiniteLine | _InfinitePlane | _Hyperplane
+$RGARegion = _Point | _Line | _InfiniteLine | _Triangle | _InfinitePlane | _Hyperplane
 
-$CGARegion = _Sphere
+$CGARegion = _Ball | _Tube | _Sphere
 
 $PGARegion = $RGARegion | $CGARegion
 

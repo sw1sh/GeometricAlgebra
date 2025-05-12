@@ -72,7 +72,7 @@ CGAFlatPoint[x_Multivector ? CGA3DQ] := With[{p = x[{{1, 5}, {2, 5}, {3, 5}}], w
 ]
 
 CGALine[args___] := ToCGA @ PGALine[args]
-CGALine[x_Multivector ? CGA3DQ] := Enclose[InfiniteLine[First @ Confirm @ CGAFlatPoint[Support[x]], x[{{4, 1, 5}, {4, 2, 5}, {4, 3, 5}}]], Missing["Line"] &]
+CGALine[x_Multivector ? CGA3DQ] := Enclose[InfiniteLine[First @ Confirm @ CGARoundPoint[Support[x]], x[{{4, 1, 5}, {4, 2, 5}, {4, 3, 5}}]], Missing["Line"] &]
 
 CGAPlane[args___] := ToCGA @ PGAPlane[args]
 CGAPlane[x_Multivector ? CGA3DQ] := With[{n = x[{{4, 2, 3, 5}, {4, 3, 1, 5}, {4, 1, 2, 5}}], w = x[3, 2, 1, 5]},
@@ -81,15 +81,17 @@ CGAPlane[x_Multivector ? CGA3DQ] := With[{n = x[{{4, 2, 3, 5}, {4, 3, 1, 5}, {4,
 
 CGARoundPoint[p : {_, _, _}, r_ : 0, w_ : 1] := p . {e[1], e[2], e[3]} + w e[4] + (p . p + r ^ 2) / 2 e[5]
 CGARoundPoint[Point[p_], r_ : 0, w_ : 1] := CGARoundPoint[p, r, w]
+CGARoundPoint[Ball[p : {_, _, _}, r_ : 0], w_ : 1] := CGARoundPoint[p, r, w]
 CGARoundPoint[x_Multivector ? CGA3DQ] := With[{p = x[{{1}, {2}, {3}}], w = x[4]}, {r = Sqrt[2 x[5] - p . p]},
-    Switch[w == 0, True, Missing["RoundPoint"], _, Point[p / w]]
+    Switch[w == 0, True, Missing["RoundPoint"], _, Ball[p / w, r]]
 ]
 
 CGADipole[p : {_, _, _}, v : {_, _, _}, m : {_, _, _}, pw_ : 1] := PGALine[v, m] + CGAFlatPoint[p, pw]
 CGADipole[p : {_, _, _}, n : {_, _, _}, r_ : 0, pw_ : 1] :=
 	n . e[{{4, 1}, {4, 2}, {4, 3}}] + Cross[p, n] . e[{{2, 3}, {3, 1}, {1, 2}}] + p . n CGAFlatPoint[p, pw] - (p . p + r ^ 2) / 2 n . e[{{1, 5}, {2, 5}, {3, 5}}]
 CGADipole[p_Point, q_Point] := Wedge[CGARoundPoint[p], CGARoundPoint[q]]
-CGADipole[Tube[{{p1 : {_, _, _}, p2 : {_, _, _}}, r_}]] := CGADipole[(p1 + p2) / 2, (p2 - p1) / 2, r]
+CGADipole[Tube[{p1 : {_, _, _}, p2 : {_, _, _}}, r_]] := With[{p = (p1 + p2) / 2, n = (p2 - p1) / 2}, CGADipole[p, r * Normalize[n], r]]
+CGADipole[Tube[{p1 : {_, _, _}, p2 : {_, _, _}}]] := With[{p = (p1 + p2) / 2, n = (p2 - p1) / 2}, CGADipole[p, n, Norm[n]]]
 CGADipole[v_Multivector ? CGAQ] := ResourceFunction["CompoundScope"][
     n = v[{{4, 1}, {4, 2}, {4, 3}}];
     nn = n . n;
@@ -99,12 +101,13 @@ CGADipole[v_Multivector ? CGAQ] := ResourceFunction["CompoundScope"][
     p = (Cross[n, x] + pn * n) / nn;
     r = Abs @ Sqrt[2 (pn * p - v[{{1, 5}, {2, 5}, {3, 5}}]) . n / nn - p . p];
     ,
-    Tube[{{p - r n / nn, p + r n / nn}}, r]
+    Tube[{p - r n / Sqrt[nn], p + r n / Sqrt[nn]}]
 ]
 
 CGACircle[n : {_, _, _}, v : {_, _, _}, m : {_, _, _}, w_ : 1] := PGAPlane[n, w] + CGALine[v, m]
 CGACircle[p : {_, _, _}, n : {_, _, _}, r_ : 1] :=
-    n . e[{{4, 2, 3}, {4, 3, 1}, {4, 1, 2}}] + Cross[p, n] . e[{{4, 1, 5}, {4, 2, 5}, {4, 3, 5}}] + p . n (p . e[{{2, 3, 4}, {3, 1, 5}, {1, 2, 5}}] - e[3, 2, 1]) - (p . p - r ^ 2) / 2 n . e[{{2, 3, 5}, {3, 1, 5}, {1, 2, 5}}]
+    n . e[{{4, 2, 3}, {4, 3, 1}, {4, 1, 2}}] + Cross[p, n] . e[{{4, 1, 5}, {4, 2, 5}, {4, 3, 5}}] + p . n (p . e[{{2, 3, 5}, {3, 1, 5}, {1, 2, 5}}] - e[3, 2, 1]) - (p . p - r ^ 2) / 2 n . e[{{2, 3, 5}, {3, 1, 5}, {1, 2, 5}}]
+CGACircle[Inactive[ResourceFunction["Circle3D"]][p : {_, _, _}, {r_, _}, psi_, zeta_]] := CGACircle[p, {Cos[psi] Cos[zeta], Sin[zeta], -Cos[zeta] Sin[psi]}, r]
 CGACircle[v_Multivector ? CGA3DQ] := ResourceFunction["CompoundScope"][
     n = v[{{4, 2, 3}, {4, 3, 1}, {4, 1, 2}}];
     nn = n . n;
@@ -121,12 +124,12 @@ CGACircle[v_Multivector ? CGA3DQ] := ResourceFunction["CompoundScope"][
 
 CGASphere[n : {_, _, _}, u_, w_] := CGAPlane[n, w] + u e[1, 2, 3, 4]
 CGASphere[p : {_, _, _}, r_ : 1] := p . {e[4, 2, 3, 5], e[4, 3, 1, 5], e[4, 1, 2, 5]} - e[1, 2, 3, 4] - (p . p - r ^ 2) / 2 e[3, 2, 1, 5]
-CGASphere[Sphere[c : {_, _, _}, r_]] := CGASphere[c, r]
+CGASphere[Sphere[c : {_, _, _}, r_ : 1]] := CGASphere[c, r]
 CGASphere[v_Multivector ? CGA3DQ] := With[{w = v[1, 2, 3, 4]},
     If[ w == 0,
-        Missing[],
+        Missing["Sphere"],
         With[{c = - v[{{4, 2, 3, 5}, {4, 3, 1, 5}, {4, 1, 2, 5}}] / w},
-            Sphere[c, Sqrt[c . c + 2 v[3, 2, 1, 5]]]
+            Sphere[c, Sqrt[c . c - 2 v[3, 2, 1, 5] / w]]
         ]
     ]
 ]
