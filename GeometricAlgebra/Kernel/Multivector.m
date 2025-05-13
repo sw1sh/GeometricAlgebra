@@ -139,6 +139,12 @@ Carrier::usage = "Carrier[v] gives a carrier of multivector v";
 PackageExport["Cocarrier"]
 Cocarrier::usage = "Cocarrier[v] gives a cocarrier of multivector v";
 
+PackageExport["Container"]
+Container::usage = "Container[v] gives a container of multivector v";
+
+PackageExport["Partner"]
+Partner::usage = "Partner[v] gives a partner of multivector v";
+
 PackageExport["BulkNorm"]
 BulkNorm::usage = "BulkNorm[v] gives a bulk norm of multivector v";
 
@@ -308,11 +314,11 @@ BalancedMultivector[v_Multivector] := BalancedMultivector[v, GeometricAlgebra[v]
 BalancedMultivector[v_Multivector, g_GeometricAlgebra] := ConvertGeometricAlgebra[MultivectorNumber[v, g["BalancedAlgebra"]], g]
 
 
-v_Multivector[key : {___Integer}] := #2 Lookup[v["Association"], Key[#1], 0] & @@ orderIndexWithSign[normalIndex[DeleteCases[key, 0], v["Signature"]], v["Dimension"]]
+v_Multivector[key___Integer] := #2 Lookup[v["Association"], Key[#1], 0] & @@ orderIndexWithSign[normalIndex[DeleteCases[{key}, 0], v["Signature"]], v["Dimension"]]
 
-v_Multivector[key___Integer] := v[{key}]
+v_Multivector[key : {___Integer}] := v /@ key
 
-v_Multivector[keys : {{___Integer} ..}] := v /@ keys
+v_Multivector[keys : {{___Integer} ..}] := v @@@ keys
 
 
 
@@ -506,6 +512,10 @@ Carrier[v_Multivector] := Wedge[v, GeometricAlgebra[v]["Infinity"]]
 
 Cocarrier[v_Multivector] := Wedge[WeightDual[v], GeometricAlgebra[v]["Infinity"]]
 
+Container[v_Multivector] := Wedge[v, WeightDual[Carrier[v]]]
+
+Partner[v_Multivector] := Vee[WeightDual[v]["Container"], v["Carrier"]]
+
 v_Multivector["FlatPart"] := FlatPart[v]
 
 v_Multivector["RoundPart"] := RoundPart[v]
@@ -524,9 +534,9 @@ v_Multivector["Cocarrier"] := Cocarrier[v]
 
 v_Multivector["Center"] := Vee[Cocarrier[v], v]
 
-v_Multivector["Container"] := Wedge[v, WeightDual[Carrier[v]]]
+v_Multivector["Container"] := Container[v]
 
-v_Multivector["Partner"] := Vee[WeightDual[v]["Container"], v["Carrier"]]
+v_Multivector["Partner"] := Partner[v]
 
 
 switchDualSide[v_Multivector] :=

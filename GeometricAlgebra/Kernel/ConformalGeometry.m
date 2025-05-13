@@ -4,6 +4,7 @@ PackageImport["Wolfram`GeometricAlgebra`"]
 
 PackageExport[CGA]
 PackageExport[$CGA0]
+PackageExport[$2DCGA]
 PackageExport[$CGA]
 PackageExport[CGAQ]
 
@@ -18,6 +19,8 @@ PackageExport[CGASphere]
 
 PackageScope[CGA3DQ]
 PackageScope[ToCGA]
+
+
 
 
 
@@ -43,8 +46,19 @@ CGA[n_Integer ? Positive] := GeometricAlgebra[n + 1, 1, "Format" -> Subscript["C
     "VectorBasis" -> BlockDiagonalMatrix[{IdentityMatrix[n], {{- 1, 1 / 2}, {1, 1 / 2}}}]
 ]
 
+$2DCGA = e2 = GeometricAlgebra[CGA[2],
+    "Ordering" -> {
+        {}, {1}, {2}, {3}, {4}, {2, 3}, {3, 1}, {1, 2}, {4, 1}, {4, 2}, {4, 3},
+        {3, 2, 1}, {4, 2, 3}, {4, 3, 1}, {4, 1, 2}, {1, 2, 3, 4}
+    }
+]
+
 
 CGAQ[x : _GeometricAlgebra | _Multivector] := MatchQ[x["Signature"], {_, 1, 0}]
+
+CGA2DQ[x : _GeometricAlgebra | _Multivector] := x["Signature"] === {3, 1, 0}
+
+CGA2DQ[___] := False
 
 CGA3DQ[x : _GeometricAlgebra | _Multivector] := x["Signature"] === {4, 1, 0}
 
@@ -61,38 +75,55 @@ ToCGA[v_Multivector] := With[{g = CGA[v["NonNegativeDimension"] - 1]},
 
 ToCGA[r : $CGARegion] := r
 
-ToCGA[___] := $$Failed
+ToCGA[___] := Missing[]
 
 
 (* Representations *)
 
 CGAFlatPoint[args___] := ToCGA @ PGAPoint[args]
-CGAFlatPoint[x_Multivector ? CGA3DQ] := With[{p = x[{{1, 5}, {2, 5}, {3, 5}}], w = x[4, 5]},
+CGAFlatPoint[x_Multivector ? CGAQ] := With[{d = PGADimension[x]}, {p = x[{#, -1} & /@ Range[d]], w = x[d + 1, -1]},
     Switch[w == 0, True, Missing["FlatPoint"], _, Point[p / w]]
 ]
 
 CGALine[args___] := ToCGA @ PGALine[args]
-CGALine[x_Multivector ? CGA3DQ] := Enclose[InfiniteLine[First @ Confirm @ CGARoundPoint[Support[x]], x[{{4, 1, 5}, {4, 2, 5}, {4, 3, 5}}]], Missing["Line"] &]
+CGALine[x_Multivector ? CGAQ] := With[{d = PGADimension[x]},
+    Enclose[InfiniteLine[First @ Confirm @ CGARoundPoint[Support[x]], x[{d + 1, #, -1} & /@ Range[d]]], Missing["Line"] &]
+]
 
 CGAPlane[args___] := ToCGA @ PGAPlane[args]
 CGAPlane[x_Multivector ? CGA3DQ] := With[{n = x[{{4, 2, 3, 5}, {4, 3, 1, 5}, {4, 1, 2, 5}}], w = x[3, 2, 1, 5]},
     Switch[Norm[n] != 0, False, Missing["Plane"], _, Hyperplane[n, - w]]
 ]
 
-CGARoundPoint[p : {_, _, _}, r_ : 0, w_ : 1] := p . {e[1], e[2], e[3]} + w e[4] + (p . p + r ^ 2) / 2 e[5]
+CGARoundPoint[p_List, r_ : 0, w_ : 1] := With[{d = Length[p]}, {g = CGA[d]}, p . g[Range[d]] + w g["Origin"] + (p . p + r ^ 2) / 2 g["Infinity"]]
 CGARoundPoint[Point[p_], r_ : 0, w_ : 1] := CGARoundPoint[p, r, w]
-CGARoundPoint[Ball[p : {_, _, _}, r_ : 0], w_ : 1] := CGARoundPoint[p, r, w]
-CGARoundPoint[x_Multivector ? CGA3DQ] := With[{p = x[{{1}, {2}, {3}}], w = x[4]}, {r = Sqrt[2 x[5] - p . p]},
+CGARoundPoint[Ball[p_, r_ : 0], w_ : 1] := CGARoundPoint[p, r, w]
+CGARoundPoint[x_Multivector ? CGAQ] := With[{d = PGADimension[x]}, {p = x[Range[d]], w = x[d + 1]}, {r = Sqrt[2 x[-1] - p . p]},
     Switch[w == 0, True, Missing["RoundPoint"], _, Ball[p / w, r]]
 ]
 
 CGADipole[p : {_, _, _}, v : {_, _, _}, m : {_, _, _}, pw_ : 1] := PGALine[v, m] + CGAFlatPoint[p, pw]
+CGADipole[p : {_, _}, n : {_, _}, r_ : 0, pw_ : 1] :=
+    n . e2[{{2, 3}, {3, 1}}] - Det[{p, n}] (p . e2[{{4, 1}, {4, 2}}] + e2[4, 3]) - p . n e2[1, 2] + (p . p + r ^ 2) / 2 n . e2[{{2, 4}, {4, 1}}]
 CGADipole[p : {_, _, _}, n : {_, _, _}, r_ : 0, pw_ : 1] :=
 	n . e[{{4, 1}, {4, 2}, {4, 3}}] + Cross[p, n] . e[{{2, 3}, {3, 1}, {1, 2}}] + p . n CGAFlatPoint[p, pw] - (p . p + r ^ 2) / 2 n . e[{{1, 5}, {2, 5}, {3, 5}}]
 CGADipole[p_Point, q_Point] := Wedge[CGARoundPoint[p], CGARoundPoint[q]]
-CGADipole[Tube[{p1 : {_, _, _}, p2 : {_, _, _}}, r_]] := With[{p = (p1 + p2) / 2, n = (p2 - p1) / 2}, CGADipole[p, r * Normalize[n], r]]
-CGADipole[Tube[{p1 : {_, _, _}, p2 : {_, _, _}}]] := With[{p = (p1 + p2) / 2, n = (p2 - p1) / 2}, CGADipole[p, n, Norm[n]]]
-CGADipole[v_Multivector ? CGAQ] := ResourceFunction["CompoundScope"][
+CGADipole[Line[{p1 : {_, _}, p2 : {_, _}}]] := With[{p = (p1 + p2) / 2, n = {-1, 1} Reverse[(p1 - p2) / 2]}, CGADipole[p, n, Norm[n]]]
+CGADipole[Tube[{p1_List, p2_List}, r_]] := With[{p = (p1 + p2) / 2, n = (p2 - p1) / 2}, CGADipole[p, r * Normalize[n], r]]
+CGADipole[Tube[{p1_List, p2_List}]] := With[{p = (p1 + p2) / 2, n = (p2 - p1) / 2}, CGADipole[p, n, Norm[n]]]
+CGADipole[v_Multivector ? CGA2DQ] := ResourceFunction["CompoundScope"][
+    n = v[{{2, 3}, {3, 1}}];
+    nn = n . n;
+    If[nn == 0, Return[Missing["Dipole"]]];
+    pn = - v[1, 2];
+    x = - v[4, 3];
+    p = {{pn, x}, {-x, pn}} . n / nn;
+    r = Abs @ Sqrt[2 (v[{{2, 4}, {4, 1}}] + x * Reverse[p] {-1, 1}) . n / nn - p . p];
+    d = Reverse[n] {-1, 1} / Sqrt[nn]
+    ,
+    Line[{p - r d, p + r d}]
+]
+CGADipole[v_Multivector ? CGA3DQ] := ResourceFunction["CompoundScope"][
     n = v[{{4, 1}, {4, 2}, {4, 3}}];
     nn = n . n;
     If[nn == 0, Return[Missing["Dipole"]]];
@@ -105,9 +136,13 @@ CGADipole[v_Multivector ? CGAQ] := ResourceFunction["CompoundScope"][
 ]
 
 CGACircle[n : {_, _, _}, v : {_, _, _}, m : {_, _, _}, w_ : 1] := PGAPlane[n, w] + CGALine[v, m]
+CGACircle[p : {_, _}, r_ : 0] :=
+    p . e2[{{4, 2, 3}, {4, 3, 1}}] - e2[3, 2, 1] - (p . p - r ^ 2) / 2 e2[4, 1, 2]
 CGACircle[p : {_, _, _}, n : {_, _, _}, r_ : 1] :=
     n . e[{{4, 2, 3}, {4, 3, 1}, {4, 1, 2}}] + Cross[p, n] . e[{{4, 1, 5}, {4, 2, 5}, {4, 3, 5}}] + p . n (p . e[{{2, 3, 5}, {3, 1, 5}, {1, 2, 5}}] - e[3, 2, 1]) - (p . p - r ^ 2) / 2 n . e[{{2, 3, 5}, {3, 1, 5}, {1, 2, 5}}]
+CGACircle[Circle[p : {_, _}, r_ : 1]] := CGACircle[p, r]
 CGACircle[Inactive[ResourceFunction["Circle3D"]][p : {_, _, _}, {r_, _}, psi_, zeta_]] := CGACircle[p, {Cos[psi] Cos[zeta], Sin[zeta], -Cos[zeta] Sin[psi]}, r]
+CGACircle[v_Multivector ? CGA2DQ] := With[{p = v[{{4, 2, 3}, {4, 3, 1}}], w = - v[3, 2, 1]}, If[w == 0, Return[Missing["Circle"]]]; Circle[p / w, Abs[Sqrt[2 v[4, 1, 2] / w + p . p]]]]
 CGACircle[v_Multivector ? CGA3DQ] := ResourceFunction["CompoundScope"][
     n = v[{{4, 2, 3}, {4, 3, 1}, {4, 1, 2}}];
     nn = n . n;
@@ -141,13 +176,13 @@ CGASphere[v_Multivector ? CGA3DQ] := With[{w = v[1, 2, 3, 4]},
 
 (* Region export *)
 
-CGARegions[v_Multivector ? CGAQ] := DeleteMissing @ <|
+CGARegions[v_Multivector ? CGAQ] := <|
     "FlatPoint" -> CGAFlatPoint[v],
     "RoundPoint" -> CGARoundPoint[v],
     "Line" -> CGALine[v],
     "Plane" -> CGAPlane[v],
     "Sphere" -> CGASphere[v],
-    If[MissingQ[#], "Circle" -> #, "Circle" :> ResourceFunction["Circle3D"][##] & @@ #] & @ CGACircle[v],
+    Activate["Circle" :> Evaluate[CGACircle[v]]],
     "Dipole" -> CGADipole[v]
 |>
 

@@ -42,7 +42,7 @@ g_GeometricAlgebra[] := Multivector[1, g]
 
 g_GeometricAlgebra[indices__Integer] := Multivector[<|{indices} -> 1|>, g]
 
-g_GeometricAlgebra[indices : {___Integer}] := g @@ indices
+g_GeometricAlgebra[indices : {___Integer}] := g /@ indices
 
 g_GeometricAlgebra[indices : {{___Integer} ...}] := g @@@ indices
 

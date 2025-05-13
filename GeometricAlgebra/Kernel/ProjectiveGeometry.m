@@ -6,6 +6,7 @@ PackageExport[PGA]
 PackageExport[PGAQ]
 PackageExport[$PGA]
 PackageExport[$2DPGA]
+PackageExport[PGADimension]
 PackageExport[PGAOrigin]
 PackageExport[RegionPGA]
 PackageExport[PGARegions]
@@ -67,6 +68,8 @@ PGA3DQ[x : _GeometricAlgebra | _Multivector] := x["Signature"] === {3, 0, 1}
 PGA3DQ[___] := False
 
 
+PGADimension[x : _GeometricAlgebra | _Multivector] := Which[CGAQ[x], x["Dimension"] - 2, PGAQ[x], x["Dimension"] - 1, True, x["Dimension"]]
+
 
 (* Constructors *)
 
@@ -86,7 +89,7 @@ PGAPoint[x_Multivector ? PGA3DQ] := With[{p = x[{{1}, {2}, {3}}], w = x[4]},
 ]
 PGAPoint[p_List, w_ : 1] := Grade[Append[p, w], 1, PGA[Length[p]]]
 
-PGALine[(Line | InfiniteLine)[{p_, q_}]] := Wedge[PGAPoint[p], PGAPoint[q]]
+PGALine[InfiniteLine[{p_, q_}]] := Wedge[PGAPoint[p], PGAPoint[q]]
 PGALine[InfiniteLine[p : {_, _, _}, v : {_, _, _}]] := PGALine[v, Cross[p, v]]
 PGALine[InfiniteLine[p : {_, _}, {x_, y_}]] := PGALine[{y, -x}, Norm[p]]
 PGALine[x_Multivector ? PGA2DQ] := Enclose[InfiniteLine[First @ Confirm @ PGAPoint[Support[x]], x[{{3, 1}, {3, 2}}]], Missing["Line"] &]
@@ -101,7 +104,7 @@ PGAPlane[Hyperplane[n : {_, _, _}, d_]] := PGAPlane[n, - d]
 PGAPlane[x_Multivector ? PGA3DQ] := With[{n = x[{{4, 2, 3}, {4, 3, 1}, {4, 1, 2}}], w = x[3, 2, 1]},
     Switch[Norm[n] != 0, False, Missing["Plane"], _, Hyperplane[n, - w]]
 ]
-PGAPlane[n : {_, _, _} : {0, 0, 1}, w_ : 1] := n . e[{{4, 2, 3}, {4, 3, 1}, {4, 1, 2}}] + w e[3, 2, 1]
+PGAPlane[n : {_, _, _}, w_ : 1] := n . e[{{4, 2, 3}, {4, 3, 1}, {4, 1, 2}}] + w e[3, 2, 1]
 
 QuaternionToRotationMatrix[r_, x_, y_, z_] := With[{aim = Norm[{x, y, z}]},
 	If[aim == 0, Return[IdentityMatrix[3]]];
@@ -122,7 +125,7 @@ PGAReflector[r_Multivector ? PGA3DQ] := With[{n = r[{{4, 2, 3}, {4, 3, 1}, {4, 1
 ]
 
 PGARotor[l_Multivector, phi_] := WeightUnitize[l] * Sin[phi / 2] + GeometricAlgebra[l]["Pseudoscalar"] * Cos[phi / 2]
-PGARotor[line : _InfiniteLine | _Line, phi_] := PGARotor[PGALine[line], phi]
+PGARotor[line : _InfiniteLine, phi_] := PGARotor[PGALine[line], phi]
 PGARotor[r_Multivector] := AffineTransform[
     If[ PGA3DQ[r],
         QuaternionToRotationMatrix @@ r[{{1, 2, 3, 4}, {4, 1}, {4, 2}, {4, 3}}]
@@ -130,12 +133,12 @@ PGARotor[r_Multivector] := AffineTransform[
 ]
 
 PGAMotor[v : {_, _, _}, m : {_, _, _}, vw_ : 1, mw_ : 1] := mw + v . e[{{4, 1}, {4, 2}, {4, 3}}] + m . e[{{2, 3}, {3, 1}, {1, 2}}] + vw i
-PGAMotor[line : _InfiniteLine | _Line | _Multivector, t : {_, _, _}, phi_ : 0] := PGAMotor[line, PGATranslator[t], phi]
-PGAMotor[line : _InfiniteLine | _Line | _Multivector, t_Multivector, phi_ : 0] := AntiGeometricProduct[t, PGARotor[line, phi]]
+PGAMotor[line : _InfiniteLine | _Multivector, t : {_, _, _}, phi_ : 0] := PGAMotor[line, PGATranslator[t], phi]
+PGAMotor[line : _InfiniteLine | _Multivector, t_Multivector, phi_ : 0] := AntiGeometricProduct[t, PGARotor[line, phi]]
 PGAMotor[m_Multivector] := PGATranslator[AntiGeometricProduct[m, AntiReverse[Weight[m]]]] @* PGARotor[m]
 
 PGAFlector[p : {_, _, _}, g : {_, _, _}, pw_ : 1, gw_ : 1] := PGAVector[Append[p, pw]] + GeometricProduct[e[4], g . moment] + gw e[3, 2, 1]
-PGAFlector[line : _InfiniteLine | _Line, g : _Triangle | _InfinitePlane | _Hyperplane, phi_ : 0] := AntiGeometricProduct[PGARotor[line, phi], g]
+PGAFlector[line : _InfiniteLine, g : _Triangle | _InfinitePlane | _Hyperplane, phi_ : 0] := AntiGeometricProduct[PGARotor[line, phi], g]
 PGAFlector[p : _Point | _Multivector, g : _Triangle | _InfinitePlane | _Hyperplane, phi_ : 0] := PGAFlector[PGALine[PGAExpansion[p, g]], g, phi]
 PGAFlector[f_Multivector] := PGAReflector[f] @* PGARotor[AntiGeometricProduct[f, AntiReverse[PGAPlane[f]]]]
 
@@ -170,7 +173,7 @@ Attributes[RegionPGA] = {Listable}
 
 RegionPGA[point : _Point] := PGAPoint[point]
 
-RegionPGA[line : _Line | _InfiniteLine] := PGALine[line]
+RegionPGA[line : _InfiniteLine] := PGALine[line]
 
 RegionPGA[plane : _Triangle | _InfinitePlane | _Hyperplane] := PGAPlane[plane]
 
@@ -178,14 +181,14 @@ RegionPGA[b_Ball] := CGARoundPoint[b]
 
 RegionPGA[s_Sphere] := CGASphere[s]
 
-RegionPGA[d_Tube] := CGADipole[d]
+RegionPGA[d_Line | d_Tube] := CGADipole[d]
 
 
 (* Region export *)
 
-PGARegions[v_Multivector] /; PGA2DQ[v] := DeleteMissing @ <|"Vector" -> Arrow[{{0, 0}, PGAVector[v]}], "Point" -> PGAPoint[v] , "Line" -> PGALine[v]|>
+PGARegions[v_Multivector] /; PGA2DQ[v] := <|"Vector" -> Arrow[{{0, 0}, PGAVector[v]}], "Point" -> PGAPoint[v] , "Line" -> PGALine[v]|>
 
-PGARegions[v_Multivector] /; PGA3DQ[v] := DeleteMissing @ <|"Vector" -> Arrow[{{0, 0, 0}, PGAVector[v]}], "Point" -> PGAPoint[v] ,"Line" -> PGALine[v] ,"Plane" -> PGAPlane[v]|>
+PGARegions[v_Multivector] /; PGA3DQ[v] := <|"Vector" -> Arrow[{{0, 0, 0}, PGAVector[v]}], "Point" -> PGAPoint[v] ,"Line" -> PGALine[v] ,"Plane" -> PGAPlane[v]|>
 
 
 
@@ -230,6 +233,12 @@ Scan[
         Rejection,
         OrthoProjection, CentralProjection,
         OrthoAntiprojection, CentralAntiprojection,
+
+        FlatPart, RoundPart,
+        RoundBulk, FlatBulk,
+        RoundWeight, FlatWeight,
+        Carrier, Cocarrier, Container,
+        Partner,
 
         PGAProjection, PGARejection
     }

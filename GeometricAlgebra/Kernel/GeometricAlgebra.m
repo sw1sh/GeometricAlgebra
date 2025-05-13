@@ -141,7 +141,8 @@ g_GeometricAlgebra["Indices"] := g["Indices"] = Block[{
     Subsets[Join[Range[p], p + Range[r], Range[- q, -1]]]
 ]
 
-g_GeometricAlgebra["OrderedIndices"] := Replace[g["Ordering"], Automatic :> g["Indices"]]
+g_GeometricAlgebra["OrderedIndices"] := g["OrderedIndices"] =
+    With[{s = g["Signature"]}, Replace[g["Ordering"], {Automatic :> g["Indices"], xs : {{___Integer} ...} :> Map[normalIndex[#, s] &, xs, {2}]}]]
 
 g_GeometricAlgebra["DualIndices"] := With[{i = Last @ g["Indices"]},
      Map[DeleteElements[i, #] &, g["Indices"]]
