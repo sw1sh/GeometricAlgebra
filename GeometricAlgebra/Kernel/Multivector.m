@@ -710,10 +710,10 @@ SuperStar[v_Multivector] ^:= v["Conjugate"]
 LeftComplement[v_Multivector] := With[{i = v["PseudoscalarIndex"]},
      Multivector[
         Association @ KeyValueMap[
-            Function[{j, x}, With[{k = DeleteElements[i, j]}, k -> permutationSignature[i, Join[j, k]] x], HoldAllComplete],
+            Function[{j, x}, With[{k = DeleteElements[i, j]}, k -> permutationSignature[i, Join[k, j]] x]],
             v["Association"]
         ],
-        v["GeometricAlgebra"]
+        GeometricAlgebra[v]
     ]
 ]
 
@@ -722,10 +722,10 @@ v_Multivector["LeftComplement"] := LeftComplement[v]
 RightComplement[v_Multivector] :=  With[{i = v["PseudoscalarIndex"]},
      Multivector[
         Association @ KeyValueMap[
-            Function[{j, x}, With[{k = DeleteElements[i, j]}, k -> permutationSignature[i, Join[j, k]] x], HoldAllComplete],
+            Function[{j, x}, With[{k = DeleteElements[i, j]}, k -> permutationSignature[i, Join[j, k]] x]],
             v["Association"]
         ],
-        v["GeometricAlgebra"]
+        GeometricAlgebra[v]
     ]
 ]
 

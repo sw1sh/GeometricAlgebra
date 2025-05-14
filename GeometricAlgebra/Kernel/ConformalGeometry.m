@@ -29,9 +29,18 @@ $CGA0 = GeometricAlgebra[4, 1, "Format" -> "CGA0",
     "VectorBasis" -> {{1, 0, 0, 0, 0}, {0, 1, 0, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 0, 0, 1}, {0, 0, 0, 1, 0}}
 ]
 
-e = $3DCGA = $CGA = GeometricAlgebra[4, 1, "Format" -> "CGA",
+CGA[2] = $2DCGA = e2 = GeometricAlgebra[3, 1, "Format" -> Subscript["CGA", "2D"],
+    "FormatIndex" -> Function[$DefaultMultivectorFormatFunction[#] /. {UnderBar[1] -> 4, Subscript[_, Row[{1, 2, 3, UnderBar[1]}, _]] -> "\[DoubleStruckOne]"}],
+    "VectorBasis" -> BlockDiagonalMatrix[{IdentityMatrix[2], {{- 1, 1 / 2}, {1, 1 / 2}}}],
+    "Ordering" -> {
+        {}, {1}, {2}, {3}, {4}, {2, 3}, {3, 1}, {1, 2}, {4, 1}, {4, 2}, {4, 3},
+        {3, 2, 1}, {4, 2, 3}, {4, 3, 1}, {4, 1, 2}, {1, 2, 3, 4}
+    }
+]
+
+CGA[3] = e = $3DCGA = $CGA = GeometricAlgebra[4, 1, "Format" -> "CGA",
     "FormatIndex" -> Function[$DefaultMultivectorFormatFunction[#] /. {UnderBar[1] -> 5, Subscript[_, Row[{1, 2, 3, 4, UnderBar[1]}, _]] -> "\[DoubleStruckOne]"}],
-    "VectorBasis" -> {{1, 0, 0, 0, 0}, {0, 1, 0, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 0, - 1, 1 / 2}, {0, 0, 0, 1, 1 / 2}},
+    "VectorBasis" -> BlockDiagonalMatrix[{IdentityMatrix[3], {{- 1, 1 / 2}, {1, 1 / 2}}}],
     "Ordering" -> {
         {}, {1}, {2}, {3}, {4}, {-1}, {4, 1}, {4, 2}, {4, 3}, {2, 3}, {3, 1}, {1, 2}, {1, -1}, {2, -1}, {3, -1}, {4, -1}, 
         {4, 2, 3}, {4, 3, 1}, {4, 1, 2}, {3, 2, 1}, {4, 1, -1}, {4, 2, -1}, {4, 3, -1}, {2, 3, -1}, {3, 1, -1}, {1, 2, -1},
@@ -39,18 +48,9 @@ e = $3DCGA = $CGA = GeometricAlgebra[4, 1, "Format" -> "CGA",
     }
 ]
 
-CGA[3] = $3DCGA
-
 CGA[n_Integer ? Positive] := GeometricAlgebra[n + 1, 1, "Format" -> Subscript["CGA", n],
     "FormatIndex" -> Function[$DefaultMultivectorFormatFunction[#] /. {UnderBar[1] -> n + 2, Subscript[_, Row[Append[Range[n + 1], UnderBar[1]], _]] -> "\[DoubleStruckOne]"}],
     "VectorBasis" -> BlockDiagonalMatrix[{IdentityMatrix[n], {{- 1, 1 / 2}, {1, 1 / 2}}}]
-]
-
-$2DCGA = e2 = GeometricAlgebra[CGA[2],
-    "Ordering" -> {
-        {}, {1}, {2}, {3}, {4}, {2, 3}, {3, 1}, {1, 2}, {4, 1}, {4, 2}, {4, 3},
-        {3, 2, 1}, {4, 2, 3}, {4, 3, 1}, {4, 1, 2}, {1, 2, 3, 4}
-    }
 ]
 
 
@@ -97,8 +97,8 @@ CGAPlane[x_Multivector ? CGA3DQ] := With[{n = x[{{4, 2, 3, 5}, {4, 3, 1, 5}, {4,
 
 CGARoundPoint[p_List, r_ : 0, w_ : 1] := With[{d = Length[p]}, {g = CGA[d]}, p . g[Range[d]] + w g["Origin"] + (p . p + r ^ 2) / 2 g["Infinity"]]
 CGARoundPoint[Point[p_], r_ : 0, w_ : 1] := CGARoundPoint[p, r, w]
-CGARoundPoint[Ball[p_, r_ : 0], w_ : 1] := CGARoundPoint[p, r, w]
-CGARoundPoint[x_Multivector ? CGAQ] := With[{d = PGADimension[x]}, {p = x[Range[d]], w = x[d + 1]}, {r = Sqrt[2 x[-1] - p . p]},
+CGARoundPoint[(Disk | Ball)[p_, r_ : 0], w_ : 1] := CGARoundPoint[p, r, w]
+CGARoundPoint[x_Multivector ? CGAQ] := With[{d = PGADimension[x]}, {p = x[Range[d]], w = x[d + 1]}, {r = Abs[Sqrt[2 x[-1] - p . p]]},
     Switch[w == 0, True, Missing["RoundPoint"], _, Ball[p / w, r]]
 ]
 
@@ -109,8 +109,8 @@ CGADipole[p : {_, _, _}, n : {_, _, _}, r_ : 0, pw_ : 1] :=
 	n . e[{{4, 1}, {4, 2}, {4, 3}}] + Cross[p, n] . e[{{2, 3}, {3, 1}, {1, 2}}] + p . n CGAFlatPoint[p, pw] - (p . p + r ^ 2) / 2 n . e[{{1, 5}, {2, 5}, {3, 5}}]
 CGADipole[p_Point, q_Point] := Wedge[CGARoundPoint[p], CGARoundPoint[q]]
 CGADipole[Line[{p1 : {_, _}, p2 : {_, _}}]] := With[{p = (p1 + p2) / 2, n = {-1, 1} Reverse[(p1 - p2) / 2]}, CGADipole[p, n, Norm[n]]]
-CGADipole[Tube[{p1_List, p2_List}, r_]] := With[{p = (p1 + p2) / 2, n = (p2 - p1) / 2}, CGADipole[p, r * Normalize[n], r]]
-CGADipole[Tube[{p1_List, p2_List}]] := With[{p = (p1 + p2) / 2, n = (p2 - p1) / 2}, CGADipole[p, n, Norm[n]]]
+CGADipole[(Line | Tube)[{p1_List, p2_List}, r_]] := With[{p = (p1 + p2) / 2, n = (p2 - p1) / 2}, CGADipole[p, r * Normalize[n], r]]
+CGADipole[(Line | Tube)[{p1_List, p2_List}]] := With[{p = (p1 + p2) / 2, n = (p2 - p1) / 2}, CGADipole[p, n, Norm[n]]]
 CGADipole[v_Multivector ? CGA2DQ] := ResourceFunction["CompoundScope"][
     n = v[{{2, 3}, {3, 1}}];
     nn = n . n;
@@ -121,7 +121,7 @@ CGADipole[v_Multivector ? CGA2DQ] := ResourceFunction["CompoundScope"][
     r = Abs @ Sqrt[2 (v[{{2, 4}, {4, 1}}] + x * Reverse[p] {-1, 1}) . n / nn - p . p];
     d = Reverse[n] {-1, 1} / Sqrt[nn]
     ,
-    Line[{p - r d, p + r d}]
+    Line[Re[{p - r d, p + r d}]]
 ]
 CGADipole[v_Multivector ? CGA3DQ] := ResourceFunction["CompoundScope"][
     n = v[{{4, 1}, {4, 2}, {4, 3}}];
@@ -142,7 +142,9 @@ CGACircle[p : {_, _, _}, n : {_, _, _}, r_ : 1] :=
     n . e[{{4, 2, 3}, {4, 3, 1}, {4, 1, 2}}] + Cross[p, n] . e[{{4, 1, 5}, {4, 2, 5}, {4, 3, 5}}] + p . n (p . e[{{2, 3, 5}, {3, 1, 5}, {1, 2, 5}}] - e[3, 2, 1]) - (p . p - r ^ 2) / 2 n . e[{{2, 3, 5}, {3, 1, 5}, {1, 2, 5}}]
 CGACircle[Circle[p : {_, _}, r_ : 1]] := CGACircle[p, r]
 CGACircle[Inactive[ResourceFunction["Circle3D"]][p : {_, _, _}, {r_, _}, psi_, zeta_]] := CGACircle[p, {Cos[psi] Cos[zeta], Sin[zeta], -Cos[zeta] Sin[psi]}, r]
-CGACircle[v_Multivector ? CGA2DQ] := With[{p = v[{{4, 2, 3}, {4, 3, 1}}], w = - v[3, 2, 1]}, If[w == 0, Return[Missing["Circle"]]]; Circle[p / w, Abs[Sqrt[2 v[4, 1, 2] / w + p . p]]]]
+CGACircle[v_Multivector ? CGA2DQ] := With[{p = v[{{4, 2, 3}, {4, 3, 1}}], w = - v[3, 2, 1]},
+    If[w == 0, Return[Missing["Circle"]]]; Circle[p / w, Abs[Sqrt[2 v[4, 1, 2] w + p . p] / w]]
+]
 CGACircle[v_Multivector ? CGA3DQ] := ResourceFunction["CompoundScope"][
     n = v[{{4, 2, 3}, {4, 3, 1}, {4, 1, 2}}];
     nn = n . n;
@@ -170,8 +172,9 @@ CGASphere[v_Multivector ? CGA3DQ] := With[{w = v[1, 2, 3, 4]},
 ]
 
 
-(* Unary operations *)
+CGAMotor[args___] := ToCGA @ PGAMotor[args] 
 
+CGAFlector[args___] := ToCGA @ PGAFlector[args] 
 
 
 (* Region export *)

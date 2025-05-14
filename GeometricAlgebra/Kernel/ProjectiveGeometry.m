@@ -35,18 +35,16 @@ PackageExport[PGATransform]
 
 
 
-$PGA = $3DPGA = e = e3 = GeometricAlgebra[3, 0, 1, "Format" -> "PGA",
+PGA[3] = $PGA = $3DPGA = e = e3 = GeometricAlgebra[3, 0, 1, "Format" -> "PGA",
     "FormatIndex" -> Function[$DefaultMultivectorFormatFunction[#] /. {Subscript[_, Row[{1, 2, 3, 4}, _]] -> "\[DoubleStruckOne]"}],
     "Ordering" -> {{}, {1}, {2}, {3}, {4}, {4, 1}, {4, 2}, {4, 3}, {2, 3}, {3, 1}, {1, 2}, {4, 2, 3}, {4, 3, 1}, {4, 1, 2}, {3, 2, 1}, {1, 2, 3, 4}}
 ]
 
-$2DPGA = e2 = GeometricAlgebra[2, 0, 1, "Format" -> Subscript["PGA", "2D"],
+PGA[2] = $2DPGA = e2 = GeometricAlgebra[2, 0, 1, "Format" -> Subscript["PGA", "2D"],
     "FormatIndex" -> Function[$DefaultMultivectorFormatFunction[#] /. {Subscript[_, Row[{3, 2, 1}, _]] -> "\[DoubleStruckOne]"}],
     "Ordering" -> {{}, {1}, {2}, {3}, {2, 3}, {3, 1}, {1, 2}, {3, 2, 1}}
 ]
 
-PGA[3] := $3DPGA
-PGA[2] := $2DPGA
 PGA[n_Integer ? Positive] := GeometricAlgebra[n, 0, 1, "Format" -> Subscript["PGA", n],
     "FormatIndex" -> With[{i = Range[n + 1]}, Function[$DefaultMultivectorFormatFunction[#] /. {Subscript[_, Row[i, _]] -> "\[DoubleStruckOne]"}]]
 ]
@@ -95,7 +93,7 @@ PGALine[InfiniteLine[p : {_, _}, {x_, y_}]] := PGALine[{y, -x}, Norm[p]]
 PGALine[x_Multivector ? PGA2DQ] := Enclose[InfiniteLine[First @ Confirm @ PGAPoint[Support[x]], x[{{3, 1}, {3, 2}}]], Missing["Line"] &]
 PGALine[x_Multivector ? PGA3DQ] := Enclose[InfiniteLine[First @ Confirm @ PGAPoint[Support[x]], x[{{4, 1}, {4, 2}, {4, 3}}]], Missing["Line"] &]
 PGALine[n : {_, _}, d_ : 0] := n . e2[{{2, 3}, {3, 1}}] + d e2[1, 2] 
-PGALine[v : {_, _, _}, m : {_, _, _}] := e[4] ** PGAVector[v] + m . moment
+PGALine[v : {_, _, _}, m : {_, _, _}] := GeometricProduct[e[4], PGAVector[v]] + m . moment
 
 PGAPlane[InfinitePlane[p : {_, _, _}, {u : {_, _, _}, v : {_, _, _}}]] := Wedge[PGAPoint[p], PGAPoint[p + u], PGAPoint[p + v]]
 PGAPlane[(Triangle | InfinitePlane)[{p1 : {_, _, _}, p2 : {_, _, _}, p3 : {_, _, _}}]] := Wedge[PGAPoint[p1], PGAPoint[p2], PGAPoint[p3]]
@@ -177,11 +175,13 @@ RegionPGA[line : _InfiniteLine] := PGALine[line]
 
 RegionPGA[plane : _Triangle | _InfinitePlane | _Hyperplane] := PGAPlane[plane]
 
-RegionPGA[b_Ball] := CGARoundPoint[b]
+RegionPGA[b : _Disk | _Ball] := CGARoundPoint[b]
 
 RegionPGA[s_Sphere] := CGASphere[s]
 
 RegionPGA[d_Line | d_Tube] := CGADipole[d]
+
+RegionPGA[c : _Circle | Inactive[ResourceFunction["Circle3D"]][__]] := CGACircle[c]
 
 
 (* Region export *)
@@ -194,9 +194,9 @@ PGARegions[v_Multivector] /; PGA3DQ[v] := <|"Vector" -> Arrow[{{0, 0, 0}, PGAVec
 
 (* Overwrite mulitivector functions for regions *)
 
-$RGARegion = _Point | _Line | _InfiniteLine | _Triangle | _InfinitePlane | _Hyperplane
+$RGARegion = _Point | _InfiniteLine | _Triangle | _InfinitePlane | _Hyperplane
 
-$CGARegion = _Ball | _Tube | _Sphere
+$CGARegion = _Disk | _Ball | _Line | _Tube | _Circle | Inactive[ResourceFunction["Circle3D"]][__] | _Sphere
 
 $PGARegion = $RGARegion | $CGARegion
 
