@@ -440,7 +440,7 @@ Multivector /: Times[x : Except[_Multivector], v_Multivector] := mapCoordinates[
 v_Multivector["Scalar"] := v["Coordinate", 1]
 
 
-v_Multivector["Pseudoscalar"] := If[v["Dimension"] > 0, v[v["PseudoscalarIndex"]], 0]
+v_Multivector["Pseudoscalar"] := If[v["Dimension"] > 0, v @@ v["PseudoscalarIndex"], 0]
 
 
 g_GeometricAlgebra["Identity"] := identityMultivector[g]

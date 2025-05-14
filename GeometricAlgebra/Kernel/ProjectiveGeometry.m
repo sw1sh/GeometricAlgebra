@@ -112,6 +112,7 @@ QuaternionToRotationMatrix[r_, x_, y_, z_] := With[{aim = Norm[{x, y, z}]},
 	]
 ]
 
+PGATranslator[t : {_, _}] := ({1, -1} t) . e2[{2, 1}] + i2
 PGATranslator[t : {_, _, _}] := t . moment + i
 PGATranslator[t_Multivector] := TranslationTransform[2 t[{{2, 3}, {3, 1}, {1, 2}}]]
 PGATranslator[t_TransformationFunction] := PGATranslator[t["AffineVector"] / 2]
@@ -123,21 +124,26 @@ PGAReflector[r_Multivector ? PGA3DQ] := With[{n = r[{{4, 2, 3}, {4, 3, 1}, {4, 1
 ]
 
 PGARotor[l_Multivector, phi_] := WeightUnitize[l] * Sin[phi / 2] + GeometricAlgebra[l]["Pseudoscalar"] * Cos[phi / 2]
-PGARotor[line : _InfiniteLine, phi_] := PGARotor[PGALine[line], phi]
-PGARotor[r_Multivector] := AffineTransform[
-    If[ PGA3DQ[r],
-        QuaternionToRotationMatrix @@ r[{{1, 2, 3, 4}, {4, 1}, {4, 2}, {4, 3}}]
+PGARotor[line : InfiniteLine[{{_, _, _}, {_, _, _}}], phi_] := PGARotor[PGALine[line], phi]
+PGARotor[point : Point[{_, _}], phi_] := PGARotor[PGAPoint[point], phi]
+PGARotor[r_Multivector] :=
+    Which[
+        PGA3DQ[r],
+        AffineTransform[QuaternionToRotationMatrix @@ r[{{1, 2, 3, 4}, {4, 1}, {4, 2}, {4, 3}}]],
+
+        PGA2DQ[r],
+        RotationTransform[ArcTan[r[1, 2, 3, 4], r[3]], r[{1, 2}]]
     ]
-]
 
 PGAMotor[v : {_, _, _}, m : {_, _, _}, vw_ : 1, mw_ : 1] := mw + v . e[{{4, 1}, {4, 2}, {4, 3}}] + m . e[{{2, 3}, {3, 1}, {1, 2}}] + vw i
-PGAMotor[line : _InfiniteLine | _Multivector, t : {_, _, _}, phi_ : 0] := PGAMotor[line, PGATranslator[t], phi]
-PGAMotor[line : _InfiniteLine | _Multivector, t_Multivector, phi_ : 0] := AntiGeometricProduct[t, PGARotor[line, phi]]
+PGAMotor[r : Point[{_, _}] | _InfiniteLine | _Multivector, t : {_, _, _}, phi_ : 0] := PGAMotor[r, PGATranslator[t], phi]
+PGAMotor[r : Point[{_, _}] | _InfiniteLine | _Multivector, t_Multivector, phi_ : 0] := AntiGeometricProduct[t, PGARotor[r, phi]]
 PGAMotor[m_Multivector] := PGATranslator[AntiGeometricProduct[m, AntiReverse[Weight[m]]]] @* PGARotor[m]
 
 PGAFlector[p : {_, _, _}, g : {_, _, _}, pw_ : 1, gw_ : 1] := PGAVector[Append[p, pw]] + GeometricProduct[e[4], g . moment] + gw e[3, 2, 1]
-PGAFlector[line : _InfiniteLine, g : _Triangle | _InfinitePlane | _Hyperplane, phi_ : 0] := AntiGeometricProduct[PGARotor[line, phi], g]
-PGAFlector[p : _Point | _Multivector, g : _Triangle | _InfinitePlane | _Hyperplane, phi_ : 0] := PGAFlector[PGALine[PGAExpansion[p, g]], g, phi]
+PGAFlector[r : InfiniteLine[{{_, _, _}, {_, _, _}}], g : _Triangle | _InfinitePlane | _Hyperplane, phi_ : 0] := AntiGeometricProduct[PGARotor[r, phi], g]
+PGAFlector[r : Point[{_, _}], l : _InfiniteLine, phi_ : 0] := AntiGeometricProduct[PGARotor[r, phi], l]
+PGAFlector[p : Point[{_, _, _}] | _Multivector, g : _Triangle | _InfinitePlane | _Hyperplane, phi_ : 0] := PGAFlector[PGALine[PGAExpansion[p, g]], g, phi]
 PGAFlector[f_Multivector] := PGAReflector[f] @* PGARotor[AntiGeometricProduct[f, AntiReverse[PGAPlane[f]]]]
 
 

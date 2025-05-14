@@ -17,6 +17,10 @@ PackageExport[SpinorMultivector]
 PackageExport[PauliSpinor]
 PackageExport[DiracSpinor]
 
+PackageExport[$STA]
+PackageExport[SpacetimeSplit]
+PackageExport[Reversion]
+
 
 
 $PauliAlgebra = GeometricAlgebra[3,
@@ -34,7 +38,7 @@ $PauliSpectralBasis = MultivectorArray[{1, s1}] ** ((1 / 2) * (1 + s3)) ** Multi
 $PauliSpinorBasis = Prepend[$PauliAlgebra["Scalar"]] @ $PauliAlgebra["PseudoBasis", 1]
 
 
-$DiracAlgebra = GeometricAlgebra[1, 3,
+$DiracAlgebra = $STA = GeometricAlgebra[1, 3,
     "Format" -> "\[DoubleStruckCapitalD]",
     "FormatIndex" -> Function[Switch[#, {}, "", {1, -3, -2, -1}, Subscript["\[Gamma]", 5], _, Subscript["\[Gamma]", Row @ Riffle[# /. {1 -> 0, -1 -> 3, -2 -> 2, -3 -> 1}, "\[InvisibleComma]"]]]]
 ]
@@ -74,3 +78,7 @@ SpinorMultivector[a_ ? MatrixQ /; Dimensions[a] == {2, 1}] := ComplexExpand[Flat
 
 SpinorMultivector[a_ ? MatrixQ /; Dimensions[a] == {4, 1}] := Flatten[a] . $DiracSpinorBasis
 
+
+SpacetimeSplit[v_Multivector] /; GeometricAlgebra[v] == $STA := GeometricProduct[v, $STA[1]]
+
+Reversion[v_Multivector] /; GeometricAlgebra[v] == $STA := GeometricProduct[$STA[1], v, $STA[1]]

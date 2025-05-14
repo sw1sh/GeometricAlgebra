@@ -8,7 +8,7 @@ PacletObject[
     "URL" -> "https://github.com/sw1sh/GeometricAlgebra",
     "License" -> "MIT",
     "PublisherID" -> "Wolfram",
-    "Version" -> "1.2",
+    "Version" -> "1.3",
     "WolframVersion" -> "14.2+",
     "PrimaryContext" -> "Wolfram`GeometricAlgebra`",
     "Extensions" -> {
@@ -20,6 +20,7 @@ PacletObject[
           "Wolfram`GeometricAlgebra`ConvertGeometricAlgebra",
           "Wolfram`GeometricAlgebra`GeometricAlgebra",
           "Wolfram`GeometricAlgebra`GeometricProduct",
+          "Wolfram`GeometricAlgebra`Grade",
           "Wolfram`GeometricAlgebra`Multivector"
         }
       },
