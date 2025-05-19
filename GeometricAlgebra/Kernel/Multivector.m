@@ -578,7 +578,7 @@ Multivector /: Times[vs__Multivector] := GeometricProduct[vs]
 Multivector /: Power[v_Multivector, n_Integer] := If[n < 0, Power[Inverse[v], -n], Nest[GeometricProduct[#, v] &, identityMultivector[v], n]]
 
 
-Multivector /: Equal[vs__Multivector] := With[{g = GeometricAlgebra[First[{vs}]]}, And @@ MapThread[Equal, Normal /@ Map[Multivector[#, g] &, {vs}]]]
+Multivector /: Equal[vs__Multivector] := With[{g = GeometricAlgebra[First[{vs}]]}, And @@ MapThread[Equal, Normal /@ Map[ConvertGeometricAlgebra[#, g] &, {vs}]]]
 
 
 Multivector /: (f_Symbol ? elementwiseFunctionQ)[v_Multivector, args___] := v[Map[f[#, args] &]]

@@ -168,7 +168,7 @@ PGADistance[a_Multivector, b_Multivector] := BulkNorm[Attitude[Wedge[a, b]]] + W
 
 (* Transforms *)
 
-PGATransform[x_, q_] := AntiGeometricProduct[q, x, AntiReverse[q]]
+PGATransform[x_, qs__] := AntiGeometricProduct[Sequence @@ Reverse[{qs}], x, Sequence @@ AntiReverse /@ {qs}]
 
 
 (* Region constructions *)

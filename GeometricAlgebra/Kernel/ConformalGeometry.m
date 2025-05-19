@@ -17,10 +17,12 @@ PackageExport[CGADipole]
 PackageExport[CGACircle]
 PackageExport[CGASphere]
 
+PackageExport[CGAMotor]
+PackageExport[CGAFlector]
+PackageExport[CGADilator]
+
 PackageScope[CGA3DQ]
 PackageScope[ToCGA]
-
-
 
 
 
@@ -175,6 +177,8 @@ CGASphere[v_Multivector ? CGA3DQ] := With[{w = v[1, 2, 3, 4]},
 CGAMotor[args___] := ToCGA @ PGAMotor[args] 
 
 CGAFlector[args___] := ToCGA @ PGAFlector[args] 
+
+CGADilator[m : {_, _, _}, s_] := (1 - s) / 2 (m . e[{{2, 3, 5}, {3, 1, 5}, {1, 2, 5}}] - e[3, 2, 1]) + (1 + s) / 2 e[1, 2, 3, 4, 5]
 
 
 (* Region export *)
