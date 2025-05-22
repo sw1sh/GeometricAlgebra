@@ -112,8 +112,9 @@ ConvertGeometricAlgebra[
     v_Multivector,
     g_GeometricAlgebra,
     opts: OptionsPattern[ConvertGeometricAlgebra]] := Block[{
-        toCanonicConversion, fromCanonicConversion, canonicCoordinates, i, w
+        h = GeometricAlgebra[v], toCanonicConversion, fromCanonicConversion, canonicCoordinates, i, w
 },
+    If[ h == g, Return[Multivector[v["Coordinates"], g]]];
     If[ v["ComplexDimension"] + 2 v["DualDimension"] != g["ComplexDimension"] + 2 g["DualDimension"],
         Return[$Failed]
     ];
@@ -126,7 +127,7 @@ ConvertGeometricAlgebra[
     toCanonicConversion = CanonicalGeometricIndices[v["GeometricAlgebra"]];
     fromCanonicConversion = CanonicalGeometricIndices[g];
     canonicCoordinates = Association @ MapThread[Function[{x, y}, y[[2]] -> x y[[1]]],
-        {ExteriorMatrix[MatrixInverse[v["VectorBasis"]]] . v["Coordinates"], toCanonicConversion[[All, 2]]}
+        {h["InverseBasisMatrix"] . v["Coordinates"], toCanonicConversion[[All, 2]]}
     ];
     i = OptionValue["Pseudoscalar"];
 
@@ -137,7 +138,7 @@ ConvertGeometricAlgebra[
         fromCanonicConversion
     ];
 
-    Multivector[ExteriorMatrix[g["VectorBasis"]] . w["Coordinates"], g]
+    Multivector[g["BasisMatrix"] . w["Coordinates"], g]
 ]
 
 ConvertGeometricAlgebra[v_Multivector, args: Except[OptionsPattern[]], opts: OptionsPattern[]] :=

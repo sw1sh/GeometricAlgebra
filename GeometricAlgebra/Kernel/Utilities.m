@@ -72,7 +72,7 @@ mergeGeometricAlgebra[vs__Multivector] := GeometricAlgebra[
 
 largestGeometricAlgebra[vs__Multivector] := largestGeometricAlgebra[{vs}]
 
-largestGeometricAlgebra[vs : {__Multivector}] := First @ MaximalBy[GeometricAlgebra /@ vs, #["Dimensionn"] &]
+largestGeometricAlgebra[vs : {__Multivector}] := First @ MaximalBy[GeometricAlgebra /@ vs, #["Dimension"] &]
 
 
 constantFunction[f_Function] := f

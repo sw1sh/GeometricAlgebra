@@ -398,6 +398,8 @@ v_Multivector /; System`Private`HoldNotValidQ[v] && multivectorQ[Unevaluated[v]]
 
 (* Coersion *)
 
+Multivector[v_Multivector] := v
+
 Multivector[v_Multivector, g_GeometricAlgebra] /; GeometricAlgebra[v] === g := v
 
 Multivector[v_Multivector, g_GeometricAlgebra] := Multivector[v["Association"], g]
@@ -414,7 +416,7 @@ Multivector /: Plus[vs__Multivector] /; Length[{vs}] > 1 := Block[{
     g = largestGeometricAlgebra[vs],
     ws
 },
-    ws = Multivector[#, g] & /@ {vs};
+    ws = ConvertGeometricAlgebra[#, g] & /@ {vs};
     Multivector[
         Total[#["Coordinates"] & /@ ws],
         g
@@ -560,7 +562,7 @@ GeometricProduct[v_Multivector, w_Multivector] := With[{
     g = largestGeometricAlgebra[v, w]
 },
     Multivector[
-        Flatten[Outer[coordinateTimes, Multivector[v, g]["Coordinates"], Multivector[w, g]["Coordinates"], 1], 1] . Flatten[g["MetricMultiplicationTensor"], 1],
+        Flatten[Outer[coordinateTimes, ConvertGeometricAlgebra[v, g]["Coordinates"], ConvertGeometricAlgebra[w, g]["Coordinates"], 1], 1] . Flatten[g["MetricMultiplicationTensor"], 1],
         g
     ][Map[reduceFunctions]]
 ]
@@ -578,7 +580,7 @@ Multivector /: Times[vs__Multivector] := GeometricProduct[vs]
 Multivector /: Power[v_Multivector, n_Integer] := If[n < 0, Power[Inverse[v], -n], Nest[GeometricProduct[#, v] &, identityMultivector[v], n]]
 
 
-Multivector /: Equal[vs__Multivector] := With[{g = GeometricAlgebra[First[{vs}]]}, And @@ MapThread[Equal, Normal /@ Map[ConvertGeometricAlgebra[#, g] &, {vs}]]]
+Multivector /: Equal[left___, v_Multivector, right___] := With[{g = GeometricAlgebra[v]}, And @@ MapThread[Equal, Normal /@ Map[ConvertGeometricAlgebra[Multivector[#], g] &,  {left, v, right}]]]
 
 
 Multivector /: (f_Symbol ? elementwiseFunctionQ)[v_Multivector, args___] := v[Map[f[#, args] &]]
