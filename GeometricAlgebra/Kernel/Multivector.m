@@ -184,6 +184,12 @@ Sandwich::usage = "Sandwich[v, w] gives a sandwich product of multivectors v and
 PackageExport["AntiSandwich"]
 AntiSandwich::usage = "AntiSandwich[v, w] gives an anti sandwich product of multivectors v and w";
 
+PackageExport["Commutator"]
+Commutator::usage = "Commutator[v, w] gives a commutator of multivectors v ** w - w ** v";
+
+PackageExport["AntiCommutator"]
+AntiCommutator::usage = "AntiCommutator[v, w] gives an anti commutator of multivectors v ** w + w ** v";
+
 PackageExport["AntiReverse"]
 AntiReverse::usage = "AntiReverse[v] gives a multivector with its even grades multiplied by -1";
 
@@ -747,6 +753,10 @@ v_Multivector["Squared"] = GeometricProduct[v, v["Involute"]]
 Sandwich[v_Multivector, w_Multivector] := - GeometricProduct[w, v, Inverse[w]]
 
 AntiSandwich[v_Multivector, w_Multivector] := - AntiGeometricProduct[w, v, UnderBar[Inverse[OverBar[w]]]]
+
+Commutator[v_Multivector, w_Multivector] := GeometricProduct[v, w] - GeometricProduct[w, v]
+
+AntiCommutator[v_Multivector, w_Multivector] := GeometricProduct[v, w] + GeometricProduct[w, v]
 
 
 (* Projections *)
