@@ -1021,9 +1021,9 @@ Multivector /: MakeBoxes[v : HoldPattern[Multivector[coords_, g_]] /; Multivecto
                     Function[x, With[{coord = x * orderAndContract[indices[[i]], metric][[2]]}, Switch[coord,
                         1, InterpretationBox["\[InvisibleSpace]", coord],
                         -1, InterpretationBox["-", coord],
-                        _, If[MatchQ[coord, _Multivector | _Dual], RowBox[{"(", ToBoxes @ coord, ")"}], Parenthesize[coord, StandardForm, Times]]
+                        _, If[MatchQ[coord, _Multivector | _Dual], RowBox[{"(", ToBoxes[coord, form], ")"}], Parenthesize[coord, form, Times]]
                     ]], HoldAllComplete] @@ holdCoord,
-                    MakeBoxes @@ holdCoord
+                    Function[x, MakeBoxes[x, form], HoldAllComplete] @@ holdCoord
                 ], HoldRest]
             ],
             rules
@@ -1044,10 +1044,10 @@ Multivector /: MakeBoxes[v : HoldPattern[Multivector[coords_, g_]] /; Multivecto
     interpret = RowBox[{"Multivector", "[",
         "SparseArray", "[", "{",
             Sequence @@ If[n > 0, 
-                Riffle[MapThread[RowBox[{ToBoxes[#1], "->", #2}] &, {nonZeroPositions, Slot /@ Range[n]}], ","],
+                Riffle[MapThread[RowBox[{ToBoxes[#1, form], "->", #2}] &, {nonZeroPositions, Slot /@ Range[n]}], ","],
                 {}
             ],
-            "}", ",", ToBoxes[g["Order"]],
+            "}", ",", ToBoxes[g["Order"], form],
         "]",
         ",",
         gBox, "]"
